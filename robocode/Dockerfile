@@ -26,6 +26,7 @@ ADD https://github.com/Kitware/CMake/releases/download/v3.19.1/cmake-3.19.1-Linu
 RUN mkdir /opt/cmake \
    & sh /tmp/install-cmake.sh --prefix=/opt/cmake --skip-license
 RUN ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake
+RUN ln -s /opt/cmake/bin/ctest /usr/local/bin/ctest
 RUN cmake --version
 
 # Pre-built LLVM
