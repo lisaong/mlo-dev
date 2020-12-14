@@ -10,10 +10,16 @@ RUN apt-get install -y \
 RUN  apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+ENV CC=gcc-8 \
+    CXX=g++-8 \
+    CMAKE_C_COMPILER=gcc-8 \
+    CMAKE_CXX_COMPILER=g++-8
+
 WORKDIR /tmp
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /code
 RUN conan remote add robocode http://robocode-packages.eastus.cloudapp.azure.com:8081/artifactory/api/conan/RoboCode-Packages & \
   conan user -p RoboCode2020 -r robocode admin
+
+WORKDIR /code

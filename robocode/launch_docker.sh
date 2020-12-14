@@ -4,4 +4,3 @@ docker run -it \
   -v $PWD:/code \
   lisaong/robocode-dev:1.0 \
   bash
-
