@@ -2,9 +2,10 @@ FROM continuumio/miniconda3:latest
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        build-essential
+      build-essential ninja-build ccache cmake
 
-RUN apt-get install -y libunwind-dev ninja-build ccache
+RUN apt-get install -y \
+    libunwind-dev libopenblas-dev
 
 RUN  apt-get clean \
     && rm -rf /var/lib/apt/lists/*
