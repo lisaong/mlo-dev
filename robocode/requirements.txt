@@ -1,0 +1,7 @@
+setuptools
+wheel
+conan
+lit
+pandas
+pandas
+tomlkit
