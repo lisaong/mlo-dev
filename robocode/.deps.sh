@@ -3,7 +3,7 @@ conan user -p RoboCode2020 -r robocode admin
 
 pip install -r /code/requirements.txt
 pip install -r /code/external/onnxbenchmarks/requirements.txt
-pip install -r /code/tools/notebooks.requirements.txt
+pip install -r /code/tools/notebooks/requirements.txt
 jupyter nbextension enable --py --sys-prefix qgrid
 jupyter nbextension enable --py --sys-prefix widgetsnbextension
 jupyter nbextension install --sys-prefix --py vega3
