@@ -4,4 +4,4 @@ docker run -it \
   -p 8888:8888 \
   -v $PWD:/code \
   lisaong/robocode-dev:1.0 \
-  bash
+  bash -c "sh /code/.deps.sh; bash"
