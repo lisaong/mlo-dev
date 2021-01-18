@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker build -t='lisaong/robocode-rtdserver:1.0' .
+docker build --build-arg REPO_PAT=PATPAT -t='lisaong/robocode-rtdserver:1.0' .

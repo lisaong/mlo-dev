@@ -1,11 +1,13 @@
 FROM lisaong/robocode-dev:2.0 AS builder
 
+ARG REPO_PAT
+
 USER root
 RUN sudo apt-get update \
     && apt-get install -y doxygen
 
 WORKDIR /code
-RUN git clone -b doc/programming_model https://intelligentdevices.visualstudio.com/ELL/_git/robocode robocode
+RUN git clone -b doc/programming_model https://${REPO_PAT}@intelligentdevices.visualstudio.com/ELL/_git/robocode robocode
 RUN pip install -r /code/robocode/doc/DSL/docgen/requirements.txt
 RUN mkdir /code/robocode/build
 
