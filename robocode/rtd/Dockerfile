@@ -19,7 +19,6 @@ RUN cmake --build . --target DSL_sphinx install --parallel 4
 
 FROM nginx:latest
 WORKDIR /usr/share/nginx/html
-COPY --from=builder /code/robocode/build/install/share/html html
-COPY --from=builder /code/robocode/build/install/share/sphinx sphinx
+COPY --from=builder /code/robocode/build/install/share/doc/ROBOCODE .
 
 EXPOSE 80
