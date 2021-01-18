@@ -12,8 +12,10 @@ RUN pip install -r /code/robocode/doc/DSL/docgen/requirements.txt
 RUN mkdir /code/robocode/build
 
 WORKDIR /code/robocode/build
-RUN cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja & \
-    cmake --build . --target DSL_Sphinx install --parallel 4
+RUN conan remote add robocode http://robocode-packages.eastus.cloudapp.azure.com:8081/artifactory/api/conan/RoboCode-Packages
+RUN conan user -p RoboCode2020 -r robocode admin
+RUN cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja
+RUN cmake --build . --target DSL_sphinx install --parallel 4
 
 FROM nginx:latest
 WORKDIR /usr/share/nginx/html
