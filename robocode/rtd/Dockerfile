@@ -4,7 +4,19 @@ ARG REPO_PAT
 
 USER root
 RUN sudo apt-get update \
-    && apt-get install -y doxygen
+    && apt-get install -y clang-9
+
+RUN sudo apt-get update \
+    && apt-get install -y flex bison
+
+WORKDIR /tmp
+RUN git clone --branch Release_1_9_1 https://github.com/doxygen/doxygen.git
+RUN mkdir doxygen/build
+
+WORKDIR /tmp/doxygen/build
+RUN cmake -G "Unix Makefiles" .. 
+RUN make -j4
+RUN sudo make install
 
 WORKDIR /code
 RUN git clone -b doc/programming_model https://${REPO_PAT}@intelligentdevices.visualstudio.com/ELL/_git/robocode robocode
