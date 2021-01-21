@@ -26,8 +26,8 @@ RUN mkdir /code/robocode/build
 WORKDIR /code/robocode/build
 RUN conan remote add robocode http://robocode-packages.eastus.cloudapp.azure.com:8081/artifactory/api/conan/RoboCode-Packages
 RUN conan user -p RoboCode2020 -r robocode admin
-RUN cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja
-RUN cmake --build . --target docs install --parallel 4
+RUN cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja -DROBOCODE_BUILD_DOCS=1
+RUN cmake --build . --target dsl_docs install --parallel 4
 
 FROM nginx:latest
 WORKDIR /usr/share/nginx/html
