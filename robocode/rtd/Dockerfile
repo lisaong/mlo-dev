@@ -31,6 +31,6 @@ RUN cmake --build . --target dsl_docs install --parallel 4
 
 FROM nginx:latest
 WORKDIR /usr/share/nginx/html
-COPY --from=builder /code/robocode/build/install/share/doc/ROBOCODE .
+COPY --from=builder /code/robocode/build/install/docs/dsl/* .
 
 EXPOSE 80
