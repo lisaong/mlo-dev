@@ -20,7 +20,7 @@ RUN sudo make install
 
 WORKDIR /code
 RUN git clone -b dev/onglisa/2967_prep_docs_framework https://${REPO_PAT}@intelligentdevices.visualstudio.com/ELL/_git/robocode robocode
-RUN pip install -r /code/robocode/doc/DSL/requirements.txt
+RUN pip install -r /code/robocode/docs/DSL/requirements.txt
 RUN mkdir /code/robocode/build
 
 WORKDIR /code/robocode/build
