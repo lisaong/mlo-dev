@@ -1,0 +1,2 @@
+sudo docker run -it -v $PWD:/code robocodecontainers.azurecr.io/robocode-ubuntu1804-base:latest \
+  bash -c "sh /code/.deps.sh; bash"
