@@ -1,0 +1,79 @@
+
+#ifndef __RoboCodeGPUUtilities__
+#define __RoboCodeGPUUtilities__
+
+#ifdef TOML
+[description]
+comment = 'RoboCodeGPUUtilities'
+author = ''
+version = ''
+license_url = ''
+
+[functions]
+[functions.RoboCodeGPUDeInitialize]
+name = 'RoboCodeGPUDeInitialize'
+description = ''
+calling_convention = "cdecl"
+arguments = []
+return = {name = '', description = '', logical_type = "void", declared_type = 'void', element_type = 'void', usage = "output"}
+
+[functions.RoboCodeGPUInitialize]
+name = 'RoboCodeGPUInitialize'
+description = ''
+calling_convention = "cdecl"
+arguments = []
+return = {name = '', description = '', logical_type = "void", declared_type = 'void', element_type = 'void', usage = "output"}
+
+[target]
+[target.required]
+os = 'windows'
+
+[target.required.CPU]
+    architecture = ''
+    extensions = [ '' ]
+
+[dependencies]
+link_target = "RoboCodeGPUUtilities.o"
+deploy_files = []
+dynamic = []
+
+[compiled_with]
+compiler = ''
+flags = ''
+crt = ''
+libraries = []
+
+[declaration]
+code = '''
+#endif // __TOML__
+//
+// Header for RoboCode library RoboCodeGPUUtilities
+//
+
+#include <stdint.h>
+
+#if defined(__cplusplus)
+extern "C"
+{
+#endif // defined(__cplusplus)
+
+//
+// Functions
+//
+
+void RoboCodeGPUInitialize();
+
+
+void RoboCodeGPUDeInitialize();
+
+
+#if defined(__cplusplus)
+} // extern "C"
+#endif // defined(__cplusplus)
+
+#ifdef __TOML__
+'''
+
+#endif // TOML
+
+#endif // __RoboCodeGPUUtilities__
