@@ -7,7 +7,13 @@ ARG GROUP_ID
 
 # Create a new user and group with the given IDs
 RUN addgroup --gid $GROUP_ID "usergroup"
-RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID SOUTHPACIFIC.onglisa
+RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
+RUN adduser user sudo
+
+# Install sudo and add the user to the sudo group
+RUN apt-get update && apt-get install -y sudo
+RUN usermod -aG sudo user
+RUN echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Switch to the new user
 USER user
