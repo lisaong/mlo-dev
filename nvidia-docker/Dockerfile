@@ -15,5 +15,8 @@ RUN apt-get update && apt-get install -y sudo
 RUN usermod -aG sudo user
 RUN echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
+# Install dependencies
+RUN apt-get update && apt-get install -y build-essential curl git zlib1g-dev
+
 # Switch to the new user
 USER user
