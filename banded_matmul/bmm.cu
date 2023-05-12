@@ -28,7 +28,7 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.x * gridDim.x) {
+         j += blockDim.y * gridDim.y) {
       for (k = blockIdx.z * blockDim.z + threadIdx.z; k < n2;
            k += blockDim.z * gridDim.z) {
         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
@@ -38,8 +38,8 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
 }
 
 void run(int nBand) {
-  const int n0 = 1024;
-  const int n1 = 1024;
+  const int n0 = 64;
+  const int n1 = 64;
   const int n2 = nBand;
 
   Matrix T0(n0, n1);           // output
@@ -50,11 +50,11 @@ void run(int nBand) {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  T0.init(0);
+  T0.init(1);
   T1.init(2);
   T2.init(3);
 
-  dim3 threads(16, 16, 16);
+  dim3 threads(1, 1, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, n2 / threads.z);
 
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
@@ -64,7 +64,7 @@ void run(int nBand) {
 
   Matrix T0_CPU(n0, n1);
   T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.init(0);
+  T0_CPU.init(1);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
 
@@ -98,6 +98,6 @@ int main(int argc, const char **argv) {
   }
   std::cout << "Using device " << deviceId << std::endl;
 
-  run(16);
+  run(3);
   return 0;
 }
