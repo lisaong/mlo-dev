@@ -1,37 +1,51 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
-
+#include <cstdlib>
 #include <cuda_runtime.h>
+#include <iostream>
 
 class Matrix {
 
 public:
-  Matrix(int w, int h) : _w(w), _h(h) {}
+  Matrix(int rows, int columns) : _rows(rows), _columns(columns) {}
 
-  int width() { return _w; }
-  int height() { return _h; }
-  uint64_t numElements() { return _w * _h; }
+  int rows() { return _rows; }
+  int columns() { return _columns; }
+  uint64_t numElements() { return _rows * _columns; }
   uint64_t size() { return numElements() * sizeof(*data); }
   void init(float value) {
-    for (auto i = 0; i < numElements(); ++i) {
+    for (uint64_t i = 0; i < numElements(); ++i) {
       data[i] = value;
     }
+  }
+
+  bool operator==(const Matrix &other) const {
+    if (_rows != other._rows || _columns != other._columns) {
+      return false;
+    }
+    for (uint64_t i = 0; i < numElements(); ++i) {
+      if (std::fabs(data[i] - other.data[i]) >
+          std::numeric_limits<float>::epsilon()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   float *data;
 
 protected:
-  int _w;
-  int _h;
+  int _rows;
+  int _columns;
 };
 
 class BandedMatrix : public Matrix {
 
 public:
-  BandedMatrix(int w, int h) : Matrix(w, h) {}
-  int width() { return _w + _h - 1; }
+  BandedMatrix(int rows, int columns) : Matrix(rows, columns) {}
+  int columns() { return _rows + _columns - 1; }
+  int diagonals() { return _columns; }
 };
 
 cudaError_t CHECK(cudaError_t res) {
