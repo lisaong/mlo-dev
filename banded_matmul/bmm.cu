@@ -38,12 +38,18 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
 }
 
 void run(int nBand) {
-  const int n0 = 64;
-  const int n1 = 64;
+
+  // n0: number of rows in T0 and T1
+  // n1: number of columns in T0 and T2
+  // n2: inner or shared dimension, i.e.
+  //  number of columns in T1 and number of rows in T2
+
+  const int n0 = 32;
+  const int n1 = 32;
   const int n2 = nBand;
 
   Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n1, n2);     // input
+  BandedMatrix T1(n0, n2);     // input
   Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
