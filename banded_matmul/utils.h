@@ -13,7 +13,7 @@ public:
   int rows() { return _rows; }
   int columns() { return _columns; }
   uint64_t numElements() { return _rows * _columns; }
-  uint64_t size() { return numElements() * sizeof(*data); }
+  uint64_t size() { return numElements() * sizeof(float); }
   void init(float value) {
     for (uint64_t i = 0; i < numElements(); ++i) {
       data[i] = value;
@@ -32,6 +32,8 @@ public:
     }
     return true;
   }
+
+  bool operator!=(const Matrix &other) const { return !(*this == other); }
 
   float *data;
 

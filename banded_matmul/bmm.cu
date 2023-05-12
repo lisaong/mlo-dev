@@ -1,7 +1,10 @@
 #include "utils.h"
 #include <cuda_runtime.h>
 
-void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1, const float *t2) {
+#define DEBUG 0
+
+void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
+                      const float *t2) {
   /*
     for i in range(n0):
         for j in range(n1):
@@ -18,8 +21,8 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1, const 
   }
 }
 
-__global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0, const float *t1,
-                                   const float *t2) {
+__global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
+                                   const float *t1, const float *t2) {
 
   int i, j, k;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
@@ -47,23 +50,36 @@ void run(int nBand) {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  T0.init(3);
-  T1.init(4);
-  T2.init(0);
+  T0.init(0);
+  T1.init(2);
+  T2.init(3);
 
   dim3 threads(16, 16, 16);
   dim3 blocks(n0 / threads.x, n1 / threads.y, n2 / threads.z);
 
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
                                           T2.data);
-
+  CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
   Matrix T0_CPU(n0, n1);
-  T0_CPU.data = reinterpret_cast<float*>(malloc(T0_CPU.size()));
-  T0_CPU.init(3);
+  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
+  T0_CPU.init(0);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
+
+#if DEBUG
+  for (int i = 0; i < T0.size(); ++i) {
+    std::cout << "CPU: " << T0_CPU.data[i] << ", Device: " << T0.data[i]
+              << std::endl;
+  }
+#endif // DEBUG
+
+  if (T0_CPU != T0) {
+    std::cerr << "Values do not match" << std::endl;
+  } else {
+    std::cout << "Values match" << std::endl;
+  }
 
   cudaFree(T0.data);
   cudaFree(T1.data);
@@ -73,7 +89,15 @@ void run(int nBand) {
 
 int main(int argc, const char **argv) {
   int deviceId;
-  CHECK(cudaGetDevice(&deviceId));
+
+  if (argc > 1) {
+    deviceId = atoi(argv[1]);
+    CHECK(cudaSetDevice(deviceId));
+  } else {
+    CHECK(cudaGetDevice(&deviceId));
+  }
+  std::cout << "Using device " << deviceId << std::endl;
+
   run(16);
   return 0;
 }

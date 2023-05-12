@@ -9,7 +9,8 @@
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/banded_matmul/bmm",
-            "preLaunchTask": "build bmm",
+            "args": "3",
+            "preLaunchTask": "build bmm"
         }
     ]
 }
