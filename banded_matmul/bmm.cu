@@ -6,7 +6,6 @@ void run(int nBand) {
   const int n1 = 1024;
   const int n2 = nBand;
 
-  // dense size
   Matrix T0(n0, n1);
   BandedMatrix T1(n1, n2);
   Matrix T2(T1.width(), n1);
@@ -15,9 +14,9 @@ void run(int nBand) {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  initWith(T0, 3);
-  initWith(T1, 4);
-  initWith(T2, 0);
+  T0.init(3);
+  T1.init(4);
+  T2.init(0);
 
   cudaFree(T0.data);
   cudaFree(T1.data);

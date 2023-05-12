@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stdio.h>
-
 #include <cstdint>
 #include <iostream>
 
@@ -11,9 +9,16 @@ class Matrix {
 
 public:
   Matrix(int w, int h) : _w(w), _h(h) {}
+
   int width() { return _w; }
   uint64_t numElements() { return _w * _h; }
   uint64_t size() { return numElements() * sizeof(float); }
+  void init(float value) {
+    for (auto i = 0; i < numElements(); ++i) {
+      data[i] = value;
+    }
+  }
+
   float *data;
 
 protected:
@@ -34,10 +39,4 @@ cudaError_t CHECK(cudaError_t res) {
     exit(EXIT_FAILURE);
   }
   return res;
-}
-
-void initWith(Matrix m, float value) {
-  for (int i = 0; i < m.numElements(); ++i) {
-    m.data[i] = value;
-  }
 }
