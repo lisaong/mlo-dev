@@ -24,7 +24,7 @@ public:
     if (_rows != other._rows || _columns != other._columns) {
       return false;
     }
-    for (uint64_t i = 0; i < numElements(); ++i) {
+    for (uint64_t i = 0; i < _rows * _columns; ++i) {
       if (std::fabs(data[i] - other.data[i]) >
           std::numeric_limits<float>::epsilon()) {
         return false;
