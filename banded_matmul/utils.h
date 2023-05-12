@@ -12,7 +12,7 @@ public:
 
   int width() { return _w; }
   int height() { return _h; }
-  uint64_t numElements() { return width() * height(); }
+  uint64_t numElements() { return _w * _h; }
   uint64_t size() { return numElements() * sizeof(*data); }
   void init(float value) {
     for (auto i = 0; i < numElements(); ++i) {
