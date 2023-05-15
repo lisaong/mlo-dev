@@ -4,6 +4,8 @@
 #include <cuda_runtime.h>
 
 #define DEBUG 0
+#define PREFETCH 0 // doesn't help
+#define DEVICE_INIT 1
 
 constexpr uint32_t kBandDim = 3;
 constexpr uint32_t kBlockDim = 16;
@@ -28,6 +30,15 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
+  }
+}
+
+__global__ void initWith(float num, float *a, int N) {
+  int index = threadIdx.x + blockIdx.x * blockDim.x;
+  int stride = blockDim.x * gridDim.x;
+
+  for (int i = index; i < N; i += stride) {
+    a[i] = num;
   }
 }
 
@@ -112,7 +123,7 @@ bool verify() {
   return result;
 }
 
-void benchmark() {
+void benchmark(int deviceId) {
   // Runs the function until 10 seconds has elapsed
 
   cudaEvent_t _start;
@@ -132,9 +143,25 @@ void benchmark() {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  T0.randomInit(11);
-  T1.randomInit(22);
-  T2.randomInit(33);
+#if DEVICE_INIT
+  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
+                                                        T0.numElements());
+  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
+                                                        T1.numElements());
+  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
+                                                        T2.numElements());
+  CHECK(cudaDeviceSynchronize());
+#else
+  T0.randomInit(11.0f);
+  T1.randomInit(22.0f);
+  T2.randomInit(33.0f);
+#endif // DEVICE_INIT
+
+#if PREFETCH
+  cudaMemPrefetchAsync(T0.data, T0.size(), deviceId);
+  cudaMemPrefetchAsync(T1.data, T1.size(), deviceId);
+  cudaMemPrefetchAsync(T2.data, T2.size(), deviceId);
+#endif // PREFETCH
 
   for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
        blockDim += kBlockDim) {
@@ -153,7 +180,6 @@ void benchmark() {
       cudaDeviceSynchronize();
       cudaEventRecord(_stop);
       cudaEventSynchronize(_stop);
-
       cudaEventElapsedTime(&duration, _start, _stop);
       elapsedTimeMilliseconds += duration;
       iterations++;
@@ -186,7 +212,7 @@ int main(int argc, const char **argv) {
   std::cout << "Using device " << deviceId << std::endl;
 
   if (verify()) {
-    benchmark();
+    benchmark(deviceId);
   }
   return 0;
 }
