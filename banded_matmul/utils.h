@@ -5,6 +5,14 @@
 #include <cuda_runtime.h>
 #include <iostream>
 
+cudaError_t CHECK(cudaError_t res) {
+  if (cudaSuccess != res) {
+    std::cerr << "CUDA Runtime Error: " << cudaGetErrorString(res) << std::endl;
+    exit(EXIT_FAILURE);
+  }
+  return res;
+}
+
 class Matrix {
 
 public:
@@ -14,9 +22,17 @@ public:
   int columns() { return _columns; }
   uint64_t numElements() { return _rows * _columns; }
   uint64_t size() { return numElements() * sizeof(float); }
+
   void init(float value) {
     for (uint64_t i = 0; i < numElements(); ++i) {
       data[i] = value;
+    }
+  }
+
+  void randomInit(int seed) {
+    srand(seed);
+    for (uint64_t i = 0; i < numElements(); ++i) {
+      data[i] = static_cast<float>(rand()) / RAND_MAX;
     }
   }
 
@@ -45,15 +61,10 @@ protected:
 class BandedMatrix : public Matrix {
 
 public:
-  BandedMatrix(int rows, int columns) : Matrix(rows, columns) {}
-  int columns() { return _rows + _columns - 1; }
-  int diagonals() { return _columns; }
-};
+  BandedMatrix(int rows, int columns, int band)
+      : Matrix(rows, band), _expandedColumns(columns) {}
+  int columns() { return _expandedColumns; }
 
-cudaError_t CHECK(cudaError_t res) {
-  if (cudaSuccess != res) {
-    std::cerr << "CUDA Runtime Error: " << cudaGetErrorString(res) << std::endl;
-    exit(EXIT_FAILURE);
-  }
-  return res;
-}
+protected:
+  int _expandedColumns;
+};

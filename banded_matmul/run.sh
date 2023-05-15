@@ -1,5 +1,8 @@
 #!/bin/sh
 
 clang-format -i *.cu *.h
-nvcc -o bmm bmm.cu -run
-nsys profile --stats=true ./bmm
+
+rm -rf bmm
+nvcc --use_fast_math --std=c++17 -o bmm bmm.cu
+./bmm
+# nsys profile --stats=true ./bmm
