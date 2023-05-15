@@ -26,7 +26,6 @@
 #include "utils.h"
 #include <cuda_runtime.h>
 
-// #define DEBUG 1
 // #define PREFETCH 1 // doesn't help
 #define DEVICE_INIT 1
 
@@ -83,6 +82,27 @@ __global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
         // The ith row of T1 is multiplied by the jth column of T2
         t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
       }
+    }
+  }
+}
+
+__global__ void bandedMatMul_PackedB_UnrolledK(int n0, int n1, int n2,
+                                               float *t0, const float *t1,
+                                               const float *t2) {
+
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+         j += blockDim.y * gridDim.y) {
+
+      // The ith row of T1 is multiplied by the jth column of T2
+      if (i < n0)
+        t0[i * n1 + j] += t1[i * n2] * t2[n1 + j];
+      if (i + 1 < n0)
+        t0[i * n1 + j] += t1[i * n2 + 1] * t2[1 * n1 + j];
+      if (i + 2 < n0)
+        t0[i * n1 + j] += t1[i * n2 + 2] * t2[2 * n1 + j];
     }
   }
 }
@@ -155,8 +175,8 @@ bool verify() {
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-  bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                            T2.data);
+  bandedMatMul_PackedB_UnrolledK<<<blocks, threads>>>(n0, n1, n2, T0.data,
+                                                      T1.data, T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -222,8 +242,8 @@ void benchmark(int deviceId) {
 
     cudaEventRecord(_start);
     while (elapsedTimeMilliseconds < kTimelimit) {
-      bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                                T2.data);
+      bandedMatMul_PackedB_UnrolledK<<<blocks, threads>>>(n0, n1, n2, T0.data,
+                                                          T1.data, T2.data);
       cudaDeviceSynchronize();
       cudaEventRecord(_stop);
       cudaEventSynchronize(_stop);
