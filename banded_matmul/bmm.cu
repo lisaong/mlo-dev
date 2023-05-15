@@ -3,6 +3,10 @@
 
 #define DEBUG 0
 
+constexpr int kBandDim = 3;
+constexpr int kBlockDim = 16;
+constexpr int N = 1024;
+
 void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
                       const float *t2) {
   /*
@@ -36,16 +40,16 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
   }
 }
 
-void run(int nBand) {
+void run() {
 
   // n0: number of rows in T0 and T1
   // n1: number of columns in T0 and T2
   // n2: inner or shared dimension, i.e.
   //  number of columns in T1 and number of rows in T2
 
-  const int n0 = 32;
-  const int n1 = 32;
-  const int n2 = nBand;
+  const int n0 = N;
+  const int n1 = N;
+  const int n2 = kBandDim;
 
   Matrix T0(n0, n1);           // output
   BandedMatrix T1(n0, n2);     // input
@@ -59,7 +63,7 @@ void run(int nBand) {
   T1.init(2);
   T2.init(3);
 
-  dim3 threads(1, 1, 1);
+  dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
@@ -103,6 +107,6 @@ int main(int argc, const char **argv) {
   }
   std::cout << "Using device " << deviceId << std::endl;
 
-  run(3);
+  run();
   return 0;
 }
