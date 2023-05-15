@@ -102,9 +102,19 @@ bool verify() {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
+#if DEVICE_INIT
+  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
+                                                        T0.numElements());
+  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
+                                                        T1.numElements());
+  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
+                                                        T2.numElements());
+  CHECK(cudaDeviceSynchronize());
+#else
   T0.init(11);
   T1.init(22);
   T2.init(33);
+#endif
 
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
@@ -114,6 +124,7 @@ bool verify() {
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
+  cudaMemPrefetchAsync(T0.data, T0.size(), cudaCpuDeviceId);
   bool result = checkCorrectness(n0, n1, n2, T0, T1, T2);
 
   cudaFree(T0.data);
