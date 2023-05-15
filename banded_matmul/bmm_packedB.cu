@@ -29,7 +29,6 @@
 
 // #define PREFETCH 1 // doesn't help
 #define DEVICE_INIT 1
-#define UNROLL_K 0
 
 #define DEBUG 1
 #if DEBUG
@@ -122,16 +121,9 @@ __global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
 
-      // The ith row of T1 is multiplied by the jth column of T2
-#if UNROLL_K
-      t0[i * n1 + j] += t1[i * n2] * t2[j];
-      t0[i * n1 + j] += t1[i * n2 + 1] * t2[n1 + j];
-      t0[i * n1 + j] += t1[i * n2 + 2] * t2[2 * n1 + j];
-#else
       for (int k = 0; k < n2; ++k) {
         t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
       }
-#endif // UNROLL_K
     }
   }
 }
@@ -209,10 +201,6 @@ bool verify() {
   T0.init(0.0f);
   T1.init(22.0f);
   T2.init(33.0f);
-#endif
-
-#if UNROLL_K
-  assert(kBandDim == 3); // else update bandedMatMul_PackedB accordingly
 #endif
 
   bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
