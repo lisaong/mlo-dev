@@ -126,5 +126,6 @@ sudo dpkg -i NsightSystems-linux-cli-public-2023.2.1.122-3259852.deb
 ## Run nsys
 
 ```shell
-nsys profile --stats=true ./bmm
+nsys profile --stats=true --force-overwrite true -o bmm ./bmm 3
+nsys analyze bmm.sqlite
 ```
