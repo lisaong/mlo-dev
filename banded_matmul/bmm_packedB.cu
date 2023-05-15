@@ -38,7 +38,7 @@ constexpr uint32_t N = 16;
 constexpr uint32_t N = 1024;
 #endif // DEBUG
 
-constexpr uint32_t kBandDim = 3;
+constexpr uint32_t kBandDim = N;
 constexpr uint32_t kBlockDim = 16;
 constexpr uint32_t kMaxBlockDim = 1024;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;
@@ -143,17 +143,17 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
   Matrix T2_CPU(T2.rows(), T2.columns());
 
   T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.init(11);
+  T0_CPU.init(0.0f);
   T2_CPU.data = reinterpret_cast<float *>(malloc(T2_CPU.size()));
-  T2_CPU.init(33);
+  T2_CPU.init(33.0f);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2_CPU.data);
 
 #if DEBUG
-  for (int i = 0; i < T0_CPU.numElements(); ++i) {
-    std::cout << "CPU: " << T0_CPU.data[i] << ", Device: " << T0.data[i]
-              << std::endl;
-  }
+  std::cout << "T0_CPU: " << std::endl;
+  T0_CPU.print();
+  std::cout << "T0: " << std::endl;
+  T0.print();
 #endif // DEBUG
 
   bool result = T0_CPU == T0;
@@ -191,16 +191,24 @@ bool verify() {
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
 #if DEVICE_INIT
-  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  initWith<<<blocks, threads>>>(0.0f, T0.data, T0.rows(), T0.columns());
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
-                                      kBandDim);
+                                      T1.band());
   initTransposeBandedWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(),
-                                               T2.columns(), kBandDim);
+                                               T2.columns(), T2.band());
   CHECK(cudaDeviceSynchronize());
+
+#if DEBUG
+  std::cout << "T1: " << std::endl;
+  T1.print();
+  std::cout << "T2: " << std::endl;
+  T2.print();
+#endif
+
 #else
-  T0.init(11);
-  T1.init(22);
-  T2.init(33);
+  T0.init(0.0f);
+  T1.init(22.0f);
+  T2.init(33.0f);
 #endif
 
 #if UNROLL_K
@@ -234,9 +242,9 @@ void benchmark(int deviceId) {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n1, n2); // input
-  Matrix T2(T1.columns(), n1); // input
+  Matrix T0(n0, n1);                               // output
+  BandedMatrix T1(n0, n1, n2);                     // input
+  TransposedBandedMatrix T2(T1.columns(), n1, n2); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
@@ -247,15 +255,15 @@ void benchmark(int deviceId) {
   dim3 threadsInit(kBlockDim, kBlockDim, 1);
   dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
 
-  initWith<<<threadsInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
+  initWith<<<threadsInit, threadsInit>>>(0.0f, T0.data, T0.rows(),
                                          T0.columns());
   initBandedWith<<<threadsInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
-                                               T1.columns(), kBandDim);
+                                               T1.columns(), T1.band());
   initTransposeBandedWith<<<threadsInit, threadsInit>>>(
-      33.0f, T2.data, T2.rows(), T2.columns(), kBandDim);
+      33.0f, T2.data, T2.rows(), T2.columns(), T2.band());
   CHECK(cudaDeviceSynchronize());
 #else
-  T0.init(11.0f);
+  T0.init(0.0f);
   T1.init(22.0f);
   T2.init(33.0f);
 #endif // DEVICE_INIT

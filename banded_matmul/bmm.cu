@@ -13,7 +13,7 @@ constexpr uint32_t N = 16;
 constexpr uint32_t N = 1024;
 #endif // DEBUG
 
-constexpr uint32_t kBandDim = 3;
+constexpr uint32_t kBandDim = N;
 constexpr uint32_t kBlockDim = 16;
 constexpr uint32_t kMaxBlockDim = 1024;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;

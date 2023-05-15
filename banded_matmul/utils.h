@@ -51,6 +51,15 @@ public:
 
   bool operator!=(const Matrix &other) const { return !(*this == other); }
 
+  void print() const {
+    for (int i = 0; i < _rows; ++i) {
+      for (int j = 0; j < _columns; ++j) {
+        std::cout << data[i * _columns + j] << " ";
+      }
+      std::cout << std::endl;
+    }
+  }
+
   float *data;
 
 protected:
@@ -64,6 +73,7 @@ public:
   BandedMatrix(int rows, int columns, int band)
       : Matrix(rows, band), _band(band), _expandedColumns(columns) {}
   int columns() const { return _expandedColumns; }
+  int band() const { return _band; }
 
   void init(float value) {
     for (int i = 0; i < rows(); ++i) {
@@ -90,6 +100,7 @@ public:
       : Matrix(band, columns), _band(band), _expandedRows(rows) {}
 
   int rows() const { return _expandedRows; }
+  int band() const { return _band; }
 
   void init(float value) {
     for (int i = 0; i < _band; ++i) {
