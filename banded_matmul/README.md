@@ -4,6 +4,9 @@ Create a function that implements matrix multiplication between a banded matrix 
 Matrix multiplication is often shown as `T0 += T1 * T2`, where T0, T1 and T2 are dense matrices. This is almost identical, except that the A matrix in this case, is a banded matrix.
 
 This can be described as follows:
+
+![banded_matmul](img/banded_matmul.png)
+
 * n0 is the number of rows in T0 and T1
 * n1 is the number of columns in T0 and T2
 * n2 is the inner or shared dimension, i.e. number of columns in T1 and number of rows in T2
