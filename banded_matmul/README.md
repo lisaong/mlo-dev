@@ -112,3 +112,19 @@ Blocksize: 992, Iterations: 1423, FLOPS: 3.05205e+11, GFLOPS: 305.205
 Blocksize: 1008, Iterations: 1424, FLOPS: 3.05515e+11, GFLOPS: 305.515
 Blocksize: 1024, Iterations: 1424, FLOPS: 3.05512e+11, GFLOPS: 305.512
 ```
+
+# Profiling
+
+## Install nsys
+Download link (login required): https://developer.nvidia.com/gameworksdownload#?dn=nsight-systems-2023-2
+
+```shell
+sudo apt install libglib2.0-0
+sudo dpkg -i NsightSystems-linux-cli-public-2023.2.1.122-3259852.deb
+```
+
+## Run nsys
+
+```shell
+nsys profile --stats=true ./bmm
+```
