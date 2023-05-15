@@ -158,7 +158,7 @@ void benchmark() {
   const double flops = iterations * kNumberOfOps /
                        (elapsedTimeMilliseconds / kMillisecondsInSeconds);
   std::cout << "Iterations: " << iterations << ", FLOPS: " << flops
-            << std::endl;
+            << ",  GFLOPS: " << flops / 1e9 << std::endl;
 
   cudaFree(T0.data);
   cudaFree(T1.data);
