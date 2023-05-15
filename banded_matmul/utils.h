@@ -63,7 +63,9 @@ protected:
 class BandedMatrix : public Matrix {
 
 public:
-  BandedMatrix(int rows, int columns) : Matrix(rows, columns) {}
-  int columns() { return _rows + _columns - 1; }
-  int diagonals() { return _columns; }
+  BandedMatrix(int rows, int columns, int band) : Matrix(rows, band), _expandedColumns(columns) {}
+  int columns() { return _expandedColumns; }
+
+protected:
+  int _expandedColumns;
 };

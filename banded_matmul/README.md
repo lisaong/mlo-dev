@@ -19,7 +19,7 @@ The matrix T1 is a banded matrix, a type of sparse matrix. It’s often given th
 
 ### Create a program that implements the following:
 
-Matrix multiplication between a banded matrix and a dense matrix. The only size to consider is when T0 is 1024 rows by 1024 columns (i.e. n0 == n1 ==  1024.).
+Matrix multiplication between a banded matrix and a dense matrix. The only size to consider is when T0 is 1024 rows by 1024 columns (i.e. n0 == n1 == 1024.).
 
 ### Measure your performance:
 
@@ -29,7 +29,7 @@ Print your performance in FLOPS, calculated by:
 
 FLOPS = NumberOfIterations x NumberOfOps / ElapsedTimeInSec
 
-Let’s assume the dense theorical number of ops, which would make NumberOfOps = 1024 x 1204 x 1024 x 2.
+Let’s assume the dense theorical number of ops, which would make NumberOfOps = 1024 x 1024 x 1024 x 2.
 Use 32-bit floating point data types for the input and output matrices.
 
 In mathematics, particularly matrix theory, a band matrix or banded matrix is a sparse matrix whose non-zero entries are confined to a diagonal band, comprising the main diagonal and zero or more diagonals.

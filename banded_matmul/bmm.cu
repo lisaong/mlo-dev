@@ -18,7 +18,7 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
   int i, j, k;
   for (i = 0; i < n0; ++i) {
     for (j = 0; j < n1; ++j) {
-      for (k = 0; k < n2; ++k) {
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
@@ -33,7 +33,7 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
        i += blockDim.x * gridDim.x) {
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
-      for (k = 0; k < n2; ++k) {
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
@@ -66,7 +66,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
   return result;
 }
 
-void run() {
+bool verify() {
 
   // n0: number of rows in T0 and T1
   // n1: number of columns in T0 and T2
@@ -78,7 +78,42 @@ void run() {
   const int n2 = kBandDim;
 
   Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n2);     // input
+  BandedMatrix T1(n0, n1, n2); // input
+  Matrix T2(T1.columns(), n1); // input
+
+  CHECK(cudaMallocManaged(&T0.data, T0.size()));
+  CHECK(cudaMallocManaged(&T1.data, T1.size()));
+  CHECK(cudaMallocManaged(&T2.data, T2.size()));
+
+  T0.randomInit(11);
+  T1.randomInit(22);
+  T2.randomInit(33);
+
+  dim3 threads(kBlockDim, kBlockDim, 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+
+  bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                          T2.data);
+  CHECK(cudaGetLastError());
+  CHECK(cudaDeviceSynchronize());
+
+  bool result = checkCorrectness(n0, n1, n2, T0, T1, T2);
+
+  cudaFree(T0.data);
+  cudaFree(T1.data);
+  cudaFree(T2.data);
+
+  return result;
+}
+
+void benchmark() {
+  // Runs the function until 10 seconds has elapsed
+  const int n0 = N;
+  const int n1 = N;
+  const int n2 = kBandDim;
+
+  Matrix T0(n0, n1);           // output
+  BandedMatrix T1(n0, n1, n2); // input
   Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
@@ -115,6 +150,8 @@ int main(int argc, const char **argv) {
   }
   std::cout << "Using device " << deviceId << std::endl;
 
-  run();
+  if (verify()) {
+    // benchmark();
+  }
   return 0;
 }
