@@ -57,7 +57,7 @@ bool verify() {
   const int n2 = kBandDim;
 
   Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n1, n2); // input
+  BandedMatrix T1(n0, n2);     // input
   Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
@@ -109,7 +109,7 @@ void benchmark(int deviceId) {
   const int n2 = kBandDim;
 
   Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n1, n2); // input
+  BandedMatrix T1(n0, n2);     // input
   Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));

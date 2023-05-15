@@ -70,9 +70,8 @@ protected:
 class BandedMatrix : public Matrix {
 
 public:
-  BandedMatrix(int rows, int columns, int band)
-      : Matrix(rows, band), _band(band), _expandedColumns(columns) {}
-  int columns() const { return _expandedColumns; }
+  BandedMatrix(int rows, int band) : Matrix(rows, band), _band(band) {}
+  int columns() const { return _rows + _band; }
   int band() const { return _band; }
 
   void init(float value) {
@@ -90,7 +89,6 @@ public:
 
 protected:
   int _band;
-  int _expandedColumns;
 };
 
 class TransposedBandedMatrix : public Matrix {
