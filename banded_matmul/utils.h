@@ -62,10 +62,24 @@ class BandedMatrix : public Matrix {
 
 public:
   BandedMatrix(int rows, int columns, int band)
-      : Matrix(rows, band), _expandedColumns(columns) {}
+      : Matrix(rows, band), _band(band), _expandedColumns(columns) {}
   int columns() const { return _expandedColumns; }
 
+  void init(float value) {
+    for (int i = 0; i < rows(); ++i) {
+      for (int j = 0; j < _band; ++j) {
+        if ((i + j) < columns()) {
+          data[i * _band + j] = value;
+        } else {
+          // zero out the lower right triangle
+          data[i * _band + j] = 0;
+        }
+      }
+    }
+  }
+
 protected:
+  int _band;
   int _expandedColumns;
 };
 
@@ -73,10 +87,24 @@ class TransposedBandedMatrix : public Matrix {
 
 public:
   TransposedBandedMatrix(int rows, int columns, int band)
-      : Matrix(band, columns), _expandedRows(rows) {}
+      : Matrix(band, columns), _band(band), _expandedRows(rows) {}
 
   int rows() const { return _expandedRows; }
 
+  void init(float value) {
+    for (int i = 0; i < _band; ++i) {
+      for (int j = 0; j < columns(); ++j) {
+        if ((i + j) < rows()) {
+          data[i * columns() + j] = value;
+        } else {
+          // zero out the lower right triangle
+          data[i * columns() + j] = 0;
+        }
+      }
+    }
+  }
+
 protected:
+  int _band;
   int _expandedRows;
 };

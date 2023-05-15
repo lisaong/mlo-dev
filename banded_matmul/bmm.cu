@@ -168,9 +168,9 @@ void benchmark(int deviceId) {
                                                         T2.numElements());
   CHECK(cudaDeviceSynchronize());
 #else
-  T0.randomInit(11.0f);
-  T1.randomInit(22.0f);
-  T2.randomInit(33.0f);
+  T0.init(11.0f);
+  T1.init(22.0f);
+  T2.init(33.0f);
 #endif // DEVICE_INIT
 
 #if PREFETCH

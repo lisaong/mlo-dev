@@ -2,25 +2,26 @@
 // where the B matrix is packed to improve locality:
 //
 // [ x 0 0 0 0 0 0 0 ]      [ x x x x x x x x ]
-// [ x x 0 0 0 0 0 0 ]      [ x x x x x x x 0 ]
-// [ x x x 0 0 0 0 0 ]      [ x x x x x x 0 0 ]
+// [ x x 0 0 0 0 0 0 ]  =>  [ x x x x x x x 0 ]  B[1, 7] = 0
+// [ x x x 0 0 0 0 0 ]      [ x x x x x x 0 0 ]  B[2, 6] = B[2, 7] = 0
 // [ 0 x x x 0 0 0 0 ]
-// [ 0 0 x x x 0 0 0 ]  =>
+// [ 0 0 x x x 0 0 0 ]
 // [ 0 0 0 x x x 0 0 ]
 // [ 0 0 0 0 x x x 0 ]
 // [ 0 0 0 0 0 x x x ]
 //
 // This assumes the A-matrix is banded:
 //
-// [ x x x 0 0 0 0 0 ]
-// [ 0 x x x 0 0 0 0 ]
-// [ 0 0 x x x 0 0 0 ]
-// [ 0 0 0 x x x 0 0 ]
-// [ 0 0 0 0 x x x 0 ]
-// [ 0 0 0 0 0 x x x ]
-// [ 0 0 0 0 0 0 x x ]
-// [ 0 0 0 0 0 0 0 x ]
+// [ x x x 0 0 0 0 0 ]      [ x x x ]
+// [ 0 x x x 0 0 0 0 ]      [ x x x ]
+// [ 0 0 x x x 0 0 0 ]      [ x x x ]
+// [ 0 0 0 x x x 0 0 ]  =>  [ x x x ]
+// [ 0 0 0 0 x x x 0 ]      [ x x x ]
+// [ 0 0 0 0 0 x x x ]      [ x x x ]
+// [ 0 0 0 0 0 0 x x ]      [ x x 0 ]  A[6, 2] = 0
+// [ 0 0 0 0 0 0 0 x ]      [ x 0 0 ]  A[7, 1] = A[7, 2] = 0
 
+#include <assert.h>
 #include <cstdint>
 
 #include "utils.h"
@@ -28,8 +29,9 @@
 
 // #define PREFETCH 1 // doesn't help
 #define DEVICE_INIT 1
+#define UNROLL_K 0
 
-// #define DEBUG 1
+#define DEBUG 1
 #if DEBUG
 constexpr uint32_t N = 16;
 #else
@@ -41,7 +43,7 @@ constexpr uint32_t kBlockDim = 16;
 constexpr uint32_t kMaxBlockDim = 1024;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
-constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
+constexpr uint32_t kTimeLimit = 10 * kMillisecondsInSeconds;
 
 void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
                       const float *t2) {
@@ -61,34 +63,58 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
   }
 }
 
-__global__ void initWith(float num, float *a, int N) {
-  int index = threadIdx.x + blockIdx.x * blockDim.x;
-  int stride = blockDim.x * gridDim.x;
+__global__ void initWith(float num, float *a, int rows, int columns) {
 
-  for (int i = index; i < N; i += stride) {
-    a[i] = num;
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
+         j += blockDim.y * gridDim.y) {
+      a[i * columns + j] = num;
+    }
   }
 }
 
-__global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
-                                     const float *t1, const float *t2) {
+__global__ void initBandedWith(float num, float *a, int rows, int columns,
+                               int band) {
 
-  int i, j, k;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
        i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < band;
          j += blockDim.y * gridDim.y) {
-      for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        // The ith row of T1 is multiplied by the jth column of T2
-        t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
+
+      if ((i + j) < columns) {
+        a[i * band + j] = num;
+      } else {
+        // zero out the lower right triangle
+        a[i * band + j] = 0;
       }
     }
   }
 }
 
-__global__ void bandedMatMul_PackedB_UnrolledK(int n0, int n1, int n2,
-                                               float *t0, const float *t1,
-                                               const float *t2) {
+__global__ void initTransposeBandedWith(float num, float *a, int rows,
+                                        int columns, int band) {
+
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < band;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
+         j += blockDim.y * gridDim.y) {
+
+      if ((i + j) < rows) {
+        a[i * columns + j] = num;
+      } else {
+        // zero out the lower right triangle
+        a[i * columns + j] = 0;
+      }
+    }
+  }
+}
+
+__global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
+                                     const float *t1, const float *t2) {
 
   int i, j;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
@@ -97,12 +123,15 @@ __global__ void bandedMatMul_PackedB_UnrolledK(int n0, int n1, int n2,
          j += blockDim.y * gridDim.y) {
 
       // The ith row of T1 is multiplied by the jth column of T2
-      if (i < n0)
-        t0[i * n1 + j] += t1[i * n2] * t2[n1 + j];
-      if (i + 1 < n0)
-        t0[i * n1 + j] += t1[i * n2 + 1] * t2[1 * n1 + j];
-      if (i + 2 < n0)
-        t0[i * n1 + j] += t1[i * n2 + 2] * t2[2 * n1 + j];
+#if UNROLL_K
+      t0[i * n1 + j] += t1[i * n2] * t2[j];
+      t0[i * n1 + j] += t1[i * n2 + 1] * t2[n1 + j];
+      t0[i * n1 + j] += t1[i * n2 + 2] * t2[2 * n1 + j];
+#else
+      for (int k = 0; k < n2; ++k) {
+        t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
+      }
+#endif // UNROLL_K
     }
   }
 }
@@ -158,13 +187,15 @@ bool verify() {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
+  dim3 threads(kBlockDim, kBlockDim, 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+
 #if DEVICE_INIT
-  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
-                                                        T0.numElements());
-  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
-                                                        T1.numElements());
-  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
-                                                        T2.numElements());
+  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
+                                      kBandDim);
+  initTransposeBandedWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(),
+                                               T2.columns(), kBandDim);
   CHECK(cudaDeviceSynchronize());
 #else
   T0.init(11);
@@ -172,11 +203,12 @@ bool verify() {
   T2.init(33);
 #endif
 
-  dim3 threads(kBlockDim, kBlockDim, 1);
-  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+#if UNROLL_K
+  assert(kBandDim == 3); // else update bandedMatMul_PackedB accordingly
+#endif
 
-  bandedMatMul_PackedB_UnrolledK<<<blocks, threads>>>(n0, n1, n2, T0.data,
-                                                      T1.data, T2.data);
+  bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                            T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -211,17 +243,21 @@ void benchmark(int deviceId) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
 #if DEVICE_INIT
-  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
-                                                        T0.numElements());
-  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
-                                                        T1.numElements());
-  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
-                                                        T2.numElements());
+
+  dim3 threadsInit(kBlockDim, kBlockDim, 1);
+  dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
+
+  initWith<<<threadsInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
+                                         T0.columns());
+  initBandedWith<<<threadsInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
+                                               T1.columns(), kBandDim);
+  initTransposeBandedWith<<<threadsInit, threadsInit>>>(
+      33.0f, T2.data, T2.rows(), T2.columns(), kBandDim);
   CHECK(cudaDeviceSynchronize());
 #else
-  T0.randomInit(11.0f);
-  T1.randomInit(22.0f);
-  T2.randomInit(33.0f);
+  T0.init(11.0f);
+  T1.init(22.0f);
+  T2.init(33.0f);
 #endif // DEVICE_INIT
 
 #if PREFETCH
@@ -241,9 +277,9 @@ void benchmark(int deviceId) {
     float duration = 0.0f;
 
     cudaEventRecord(_start);
-    while (elapsedTimeMilliseconds < kTimelimit) {
-      bandedMatMul_PackedB_UnrolledK<<<blocks, threads>>>(n0, n1, n2, T0.data,
-                                                          T1.data, T2.data);
+    while (elapsedTimeMilliseconds < kTimeLimit) {
+      bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                                T2.data);
       cudaDeviceSynchronize();
       cudaEventRecord(_stop);
       cudaEventSynchronize(_stop);
