@@ -1,9 +1,33 @@
+// Packed B implementation of banded matrix multiplication
+// where the B matrix is packed to improve locality:
+//
+// [ x 0 0 0 0 0 0 0 ]      [ x x x x x x x x ]
+// [ x x 0 0 0 0 0 0 ]      [ x x x x x x x 0 ]
+// [ x x x 0 0 0 0 0 ]      [ x x x x x x 0 0 ]
+// [ 0 x x x 0 0 0 0 ]
+// [ 0 0 x x x 0 0 0 ]  =>
+// [ 0 0 0 x x x 0 0 ]
+// [ 0 0 0 0 x x x 0 ]
+// [ 0 0 0 0 0 x x x ]
+//
+// This assumes the A-matrix is banded:
+//
+// [ x x x 0 0 0 0 0 ]
+// [ 0 x x x 0 0 0 0 ]
+// [ 0 0 x x x 0 0 0 ]
+// [ 0 0 0 x x x 0 0 ]
+// [ 0 0 0 0 x x x 0 ]
+// [ 0 0 0 0 0 x x x ]
+// [ 0 0 0 0 0 0 x x ]
+// [ 0 0 0 0 0 0 0 x ]
+
 #include <cstdint>
 
 #include "utils.h"
 #include <cuda_runtime.h>
 
-// #define PREFETCH 0 // doesn't help
+// #define DEBUG 1
+// #define PREFETCH 1 // doesn't help
 #define DEVICE_INIT 1
 
 // #define DEBUG 1
@@ -47,8 +71,8 @@ __global__ void initWith(float num, float *a, int N) {
   }
 }
 
-__global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
-                                   const float *t1, const float *t2) {
+__global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
+                                     const float *t1, const float *t2) {
 
   int i, j, k;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
@@ -56,19 +80,25 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
+        // The ith row of T1 is multiplied by the jth column of T2
+        t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
       }
     }
   }
 }
 
 bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
-                      const BandedMatrix &T1, const Matrix &T2) {
+                      const BandedMatrix &T1,
+                      const TransposedBandedMatrix &T2) {
   Matrix T0_CPU(n0, n1);
+  Matrix T2_CPU(T2.rows(), T2.columns());
+
   T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
   T0_CPU.init(11);
+  T2_CPU.data = reinterpret_cast<float *>(malloc(T2_CPU.size()));
+  T2_CPU.init(33);
 
-  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
+  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2_CPU.data);
 
 #if DEBUG
   for (int i = 0; i < T0_CPU.numElements(); ++i) {
@@ -85,6 +115,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
   }
 
   free(T0_CPU.data);
+  free(T2_CPU.data);
   return result;
 }
 
@@ -99,9 +130,9 @@ bool verify() {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n1, n2); // input
-  Matrix T2(T1.columns(), n1); // input
+  Matrix T0(n0, n1);                               // output
+  BandedMatrix T1(n0, n1, n2);                     // input
+  TransposedBandedMatrix T2(T1.columns(), n1, n2); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
@@ -124,8 +155,8 @@ bool verify() {
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-  bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                          T2.data);
+  bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                            T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -191,8 +222,8 @@ void benchmark(int deviceId) {
 
     cudaEventRecord(_start);
     while (elapsedTimeMilliseconds < kTimelimit) {
-      bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                              T2.data);
+      bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                                T2.data);
       cudaDeviceSynchronize();
       cudaEventRecord(_stop);
       cudaEventSynchronize(_stop);

@@ -18,10 +18,10 @@ class Matrix {
 public:
   Matrix(int rows, int columns) : _rows(rows), _columns(columns) {}
 
-  int rows() { return _rows; }
-  int columns() { return _columns; }
-  uint64_t numElements() { return _rows * _columns; }
-  uint64_t size() { return numElements() * sizeof(float); }
+  int rows() const { return _rows; }
+  int columns() const { return _columns; }
+  uint64_t numElements() const { return _rows * _columns; }
+  uint64_t size() const { return numElements() * sizeof(float); }
 
   void init(float value) {
     for (uint64_t i = 0; i < numElements(); ++i) {
@@ -63,8 +63,20 @@ class BandedMatrix : public Matrix {
 public:
   BandedMatrix(int rows, int columns, int band)
       : Matrix(rows, band), _expandedColumns(columns) {}
-  int columns() { return _expandedColumns; }
+  int columns() const { return _expandedColumns; }
 
 protected:
   int _expandedColumns;
+};
+
+class TransposedBandedMatrix : public Matrix {
+
+public:
+  TransposedBandedMatrix(int rows, int columns, int band)
+      : Matrix(band, columns), _expandedRows(rows) {}
+
+  int rows() const { return _expandedRows; }
+
+protected:
+  int _expandedRows;
 };

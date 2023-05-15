@@ -11,6 +11,14 @@
             "program": "${workspaceFolder}/banded_matmul/bmm",
             "args": "3",
             "preLaunchTask": "build bmm"
+        },
+        {
+            "name": "CUDA C++: Launch bmm (packedB)",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/banded_matmul/bmm_packedB",
+            "args": "3",
+            "preLaunchTask": "build bmm (packedB)"
         }
     ]
 }
