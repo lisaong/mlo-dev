@@ -21,16 +21,16 @@
 // [ 0 0 0 0 0 0 x x ]      [ x x 0 ]  A[6, 2] = 0
 // [ 0 0 0 0 0 0 0 x ]      [ x 0 0 ]  A[7, 1] = A[7, 2] = 0
 
-#include <assert.h>
 #include <cstdint>
 
-#include "utils.h"
 #include <cuda_runtime.h>
 
 // #define PREFETCH 1 // doesn't help
 #define DEVICE_INIT 1
 
 #define DEBUG 1
+#include "utils.h"
+
 #if DEBUG
 constexpr uint32_t N = 16;
 #else
@@ -110,38 +110,6 @@ __global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
   }
 }
 
-bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
-                      const BandedMatrix &T1,
-                      const TransposedBandedMatrix &T2) {
-  Matrix T0_CPU(n0, n1);
-  Matrix T2_CPU(T2.rows(), T2.columns());
-
-  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.init(0.0f);
-  T2_CPU.data = reinterpret_cast<float *>(malloc(T2_CPU.size()));
-  T2_CPU.init(33.0f);
-
-  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2_CPU.data);
-
-#if DEBUG
-  std::cout << "T0_CPU: " << std::endl;
-  T0_CPU.print();
-  std::cout << "T0: " << std::endl;
-  T0.print();
-#endif // DEBUG
-
-  bool result = T0_CPU == T0;
-  if (result) {
-    std::cout << "Values match" << std::endl;
-  } else {
-    std::cerr << "Values do not match" << std::endl;
-  }
-
-  free(T0_CPU.data);
-  free(T2_CPU.data);
-  return result;
-}
-
 bool verify() {
 
   // n0: number of rows in T0 and T1
@@ -165,7 +133,7 @@ bool verify() {
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
 #if DEVICE_INIT
-  initWith<<<blocks, threads>>>(0.0f, T0.data, T0.rows(), T0.columns());
+  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
   initTransposeBandedWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(),
@@ -180,7 +148,7 @@ bool verify() {
 #endif
 
 #else
-  T0.init(0.0f);
+  T0.init(11.0f);
   T1.init(22.0f);
   T2.init(33.0f);
 #endif
@@ -225,7 +193,7 @@ void benchmark(int deviceId) {
   dim3 threadsInit(kBlockDim, kBlockDim, 1);
   dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
 
-  initWith<<<threadsInit, threadsInit>>>(0.0f, T0.data, T0.rows(),
+  initWith<<<threadsInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
                                          T0.columns());
   initBandedWith<<<threadsInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
                                                T1.columns(), T1.band());
@@ -233,7 +201,7 @@ void benchmark(int deviceId) {
       33.0f, T2.data, T2.rows(), T2.columns(), T2.band());
   CHECK(cudaDeviceSynchronize());
 #else
-  T0.init(0.0f);
+  T0.init(11.0f);
   T1.init(22.0f);
   T2.init(33.0f);
 #endif // DEVICE_INIT

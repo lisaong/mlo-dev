@@ -1,12 +1,13 @@
 #include <cstdint>
 
-#include "utils.h"
 #include <cuda_runtime.h>
 
 // #define PREFETCH 0 // doesn't help
 #define DEVICE_INIT 1
 
 // #define DEBUG 1
+#include "utils.h"
+
 #if DEBUG
 constexpr uint32_t N = 16;
 #else
@@ -42,32 +43,6 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
       }
     }
   }
-}
-
-bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
-                      const BandedMatrix &T1, const Matrix &T2) {
-  Matrix T0_CPU(n0, n1);
-  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.init(11);
-
-  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
-
-#if DEBUG
-  for (int i = 0; i < T0_CPU.numElements(); ++i) {
-    std::cout << "CPU: " << T0_CPU.data[i] << ", Device: " << T0.data[i]
-              << std::endl;
-  }
-#endif // DEBUG
-
-  bool result = T0_CPU == T0;
-  if (result) {
-    std::cout << "Values match" << std::endl;
-  } else {
-    std::cerr << "Values do not match" << std::endl;
-  }
-
-  free(T0_CPU.data);
-  return result;
 }
 
 bool verify() {

@@ -137,3 +137,44 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
     }
   }
 }
+
+bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
+                      const BandedMatrix &T1, const Matrix &T2) {
+  Matrix T0_CPU(T0.rows(), T0.columns());
+
+  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
+  T0_CPU.init(11.0f);
+
+  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
+
+#if DEBUG
+  std::cout << "T0_CPU: " << std::endl;
+  T0_CPU.print();
+  std::cout << "T0: " << std::endl;
+  T0.print();
+#endif // DEBUG
+
+  bool result = T0_CPU == T0;
+  if (result) {
+    std::cout << "Values match" << std::endl;
+  } else {
+    std::cerr << "Values do not match" << std::endl;
+  }
+
+  free(T0_CPU.data);
+  return result;
+}
+
+bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
+                      const BandedMatrix &T1,
+                      const TransposedBandedMatrix &T2) {
+  Matrix T2_CPU(T2.rows(), T2.columns());
+
+  T2_CPU.data = reinterpret_cast<float *>(malloc(T2_CPU.size()));
+  T2_CPU.init(33.0f);
+
+  bool result = checkCorrectness(n0, n1, n2, T0, T1, T2_CPU);
+
+  free(T2_CPU.data);
+  return result;
+}
