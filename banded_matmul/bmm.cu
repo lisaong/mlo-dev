@@ -1,11 +1,16 @@
+#include <cstdint>
+
 #include "utils.h"
 #include <cuda_runtime.h>
 
 #define DEBUG 0
 
-constexpr int kBandDim = 3;
-constexpr int kBlockDim = 16;
-constexpr int N = 1024;
+constexpr uint32_t kBandDim = 3;
+constexpr uint32_t kBlockDim = 16;
+constexpr uint32_t N = 1024;
+constexpr uint32_t kNumberOfOps = 2 * N * N * N;
+constexpr uint32_t kMillisecondsInSeconds = 1000;
+constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
 
 void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
                       const float *t2) {
@@ -108,6 +113,12 @@ bool verify() {
 
 void benchmark() {
   // Runs the function until 10 seconds has elapsed
+
+  cudaEvent_t _start;
+  cudaEvent_t _stop;
+  cudaEventCreate(&_start);
+  cudaEventCreate(&_stop);
+
   const int n0 = N;
   const int n1 = N;
   const int n2 = kBandDim;
@@ -127,16 +138,34 @@ void benchmark() {
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-  bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                          T2.data);
-  CHECK(cudaGetLastError());
-  CHECK(cudaDeviceSynchronize());
+  double elapsedTimeMilliseconds = 0.0f;
+  uint64_t iterations = 0;
+  float duration = 0.0f;
 
-  checkCorrectness(n0, n1, n2, T0, T1, T2);
+  cudaEventRecord(_start);
+  while (elapsedTimeMilliseconds < kTimelimit) {
+    bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                            T2.data);
+    cudaDeviceSynchronize();
+    cudaEventRecord(_stop);
+    cudaEventSynchronize(_stop);
+
+    cudaEventElapsedTime(&duration, _start, _stop);
+    elapsedTimeMilliseconds += duration;
+    iterations++;
+  }
+
+  const double flops = iterations * kNumberOfOps /
+                       (elapsedTimeMilliseconds / kMillisecondsInSeconds);
+  std::cout << "Iterations: " << iterations << ", FLOPS: " << flops
+            << std::endl;
 
   cudaFree(T0.data);
   cudaFree(T1.data);
   cudaFree(T2.data);
+
+  cudaEventDestroy(_start);
+  cudaEventDestroy(_stop);
 }
 
 int main(int argc, const char **argv) {
@@ -151,7 +180,7 @@ int main(int argc, const char **argv) {
   std::cout << "Using device " << deviceId << std::endl;
 
   if (verify()) {
-    // benchmark();
+    benchmark();
   }
   return 0;
 }
