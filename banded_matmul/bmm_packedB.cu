@@ -44,24 +44,6 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimeLimit = 10 * kMillisecondsInSeconds;
 
-void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
-                      const float *t2) {
-  /*
-    for i in range(n0):
-        for j in range(n1):
-            for k in range(n2):
-                t0[i, j] += t1[i, k] * t2[i + k, j]
-  */
-  int i, j, k;
-  for (i = 0; i < n0; ++i) {
-    for (j = 0; j < n1; ++j) {
-      for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
-      }
-    }
-  }
-}
-
 __global__ void initWith(float num, float *a, int rows, int columns) {
 
   int i, j;
