@@ -40,6 +40,32 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
   }
 }
 
+bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
+                      const BandedMatrix &T1, const Matrix &T2) {
+  Matrix T0_CPU(n0, n1);
+  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
+  T0_CPU.randomInit(11);
+
+  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
+
+#if DEBUG
+  for (int i = 0; i < T0_CPU.numElements(); ++i) {
+    std::cout << "CPU: " << T0_CPU.data[i] << ", Device: " << T0.data[i]
+              << std::endl;
+  }
+#endif // DEBUG
+
+  bool result = T0_CPU == T0;
+  if (result) {
+    std::cout << "Values match" << std::endl;
+  } else {
+    std::cerr << "Values do not match" << std::endl;
+  }
+
+  free(T0_CPU.data);
+  return result;
+}
+
 void run() {
 
   // n0: number of rows in T0 and T1
@@ -59,9 +85,9 @@ void run() {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  T0.init(1);
-  T1.init(2);
-  T2.init(3);
+  T0.randomInit(11);
+  T1.randomInit(22);
+  T2.randomInit(33);
 
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
@@ -71,29 +97,11 @@ void run() {
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
-  Matrix T0_CPU(n0, n1);
-  T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.init(1);
-
-  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
-
-#if DEBUG
-  for (int i = 0; i < T0.size(); ++i) {
-    std::cout << "CPU: " << T0_CPU.data[i] << ", Device: " << T0.data[i]
-              << std::endl;
-  }
-#endif // DEBUG
-
-  if (T0_CPU != T0) {
-    std::cerr << "Values do not match" << std::endl;
-  } else {
-    std::cout << "Values match" << std::endl;
-  }
+  checkCorrectness(n0, n1, n2, T0, T1, T2);
 
   cudaFree(T0.data);
   cudaFree(T1.data);
   cudaFree(T2.data);
-  free(T0_CPU.data);
 }
 
 int main(int argc, const char **argv) {
