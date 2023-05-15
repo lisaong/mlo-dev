@@ -29,8 +29,7 @@ __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
        i += blockDim.x * gridDim.x) {
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
-      for (k = blockIdx.z * blockDim.z + threadIdx.z; k < n2;
-           k += blockDim.z * gridDim.z) {
+      for (k = 0; k < n2; ++k) {
         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
@@ -61,7 +60,7 @@ void run(int nBand) {
   T2.init(3);
 
   dim3 threads(1, 1, 1);
-  dim3 blocks(n0 / threads.x, n1 / threads.y, n2 / threads.z);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
                                           T2.data);
