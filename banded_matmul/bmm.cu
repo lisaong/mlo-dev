@@ -49,7 +49,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
                       const BandedMatrix &T1, const Matrix &T2) {
   Matrix T0_CPU(n0, n1);
   T0_CPU.data = reinterpret_cast<float *>(malloc(T0_CPU.size()));
-  T0_CPU.randomInit(11);
+  T0_CPU.init(11);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
 
@@ -90,9 +90,9 @@ bool verify() {
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
-  T0.randomInit(11);
-  T1.randomInit(22);
-  T2.randomInit(33);
+  T0.init(11);
+  T1.init(22);
+  T2.init(33);
 
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);

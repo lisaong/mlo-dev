@@ -5,7 +5,6 @@
 #include <cuda_runtime.h>
 #include <iostream>
 
-
 cudaError_t CHECK(cudaError_t res) {
   if (cudaSuccess != res) {
     std::cerr << "CUDA Runtime Error: " << cudaGetErrorString(res) << std::endl;
@@ -13,7 +12,6 @@ cudaError_t CHECK(cudaError_t res) {
   }
   return res;
 }
-
 
 class Matrix {
 
@@ -63,7 +61,8 @@ protected:
 class BandedMatrix : public Matrix {
 
 public:
-  BandedMatrix(int rows, int columns, int band) : Matrix(rows, band), _expandedColumns(columns) {}
+  BandedMatrix(int rows, int columns, int band)
+      : Matrix(rows, band), _expandedColumns(columns) {}
   int columns() { return _expandedColumns; }
 
 protected:
