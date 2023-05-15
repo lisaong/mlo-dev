@@ -21,15 +21,6 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
 
-__global__ void initWith(float num, float *a, int N) {
-  int index = threadIdx.x + blockIdx.x * blockDim.x;
-  int stride = blockDim.x * gridDim.x;
-
-  for (int i = index; i < N; i += stride) {
-    a[i] = num;
-  }
-}
-
 __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
                                    const float *t1, const float *t2) {
 
@@ -56,31 +47,28 @@ bool verify() {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n2);     // input
-  Matrix T2(T1.columns(), n1); // input
+  Matrix T0(n0, n1);             // output
+  BandedMatrix T1(n0, kBandDim); // input
+  Matrix T2(T1.columns(), n1);   // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
+  dim3 threads(kBlockDim, kBlockDim, 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+
 #if DEVICE_INIT
-  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
-                                                        T0.numElements());
-  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
-                                                        T1.numElements());
-  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
-                                                        T2.numElements());
+  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
+                                      T1.band());
+  initWith<<<blocks, threads>>>(22.0f, T2.data, T2.rows(), T2.columns());
   CHECK(cudaDeviceSynchronize());
 #else
   T0.init(11);
   T1.init(22);
   T2.init(33);
 #endif
-
-  dim3 threads(kBlockDim, kBlockDim, 1);
-  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
                                           T2.data);
   CHECK(cudaGetLastError());
@@ -108,21 +96,23 @@ void benchmark(int deviceId) {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);           // output
-  BandedMatrix T1(n0, n2);     // input
-  Matrix T2(T1.columns(), n1); // input
+  Matrix T0(n0, n1);             // output
+  BandedMatrix T1(n0, kBandDim); // input
+  Matrix T2(T1.columns(), n1);   // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
 #if DEVICE_INIT
-  initWith<<<T0.numElements() / kBlockDim, kBlockDim>>>(11.0f, T0.data,
-                                                        T0.numElements());
-  initWith<<<T1.numElements() / kBlockDim, kBlockDim>>>(22.0f, T1.data,
-                                                        T1.numElements());
-  initWith<<<T2.numElements() / kBlockDim, kBlockDim>>>(33.0f, T2.data,
-                                                        T2.numElements());
+  dim3 threadsInit(kBlockDim, kBlockDim, 1);
+  dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
+  initWith<<<threadsInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
+                                         T0.columns());
+  initBandedWith<<<threadsInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
+                                               T1.columns(), T1.band());
+  initWith<<<threadsInit, threadsInit>>>(33.0f, T2.data, T2.rows(),
+                                         T2.columns());
   CHECK(cudaDeviceSynchronize());
 #else
   T0.init(11.0f);

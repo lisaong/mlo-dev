@@ -13,6 +13,37 @@ cudaError_t CHECK(cudaError_t res) {
   return res;
 }
 
+__global__ void initWith(float num, float *a, int rows, int columns) {
+
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
+         j += blockDim.y * gridDim.y) {
+      a[i * columns + j] = num;
+    }
+  }
+}
+
+__global__ void initBandedWith(float num, float *a, int rows, int columns,
+                               int band) {
+
+  int i, j;
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < band;
+         j += blockDim.y * gridDim.y) {
+
+      if ((i + j) < columns) {
+        a[i * band + j] = num;
+      } else {
+        // zero out the lower right triangle
+        a[i * band + j] = 0;
+      }
+    }
+  }
+}
+
 class Matrix {
 
 public:
@@ -94,10 +125,10 @@ protected:
 class TransposedBandedMatrix : public Matrix {
 
 public:
-  TransposedBandedMatrix(int rows, int columns, int band)
-      : Matrix(band, columns), _band(band), _expandedRows(rows) {}
+  TransposedBandedMatrix(int columns, int band)
+      : Matrix(band, columns), _band(band) {}
 
-  int rows() const { return _expandedRows; }
+  int rows() const { return _columns + _band; }
   int band() const { return _band; }
 
   void init(float value) {

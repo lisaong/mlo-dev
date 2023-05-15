@@ -44,37 +44,6 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimeLimit = 10 * kMillisecondsInSeconds;
 
-__global__ void initWith(float num, float *a, int rows, int columns) {
-
-  int i, j;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
-         j += blockDim.y * gridDim.y) {
-      a[i * columns + j] = num;
-    }
-  }
-}
-
-__global__ void initBandedWith(float num, float *a, int rows, int columns,
-                               int band) {
-
-  int i, j;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < band;
-         j += blockDim.y * gridDim.y) {
-
-      if ((i + j) < columns) {
-        a[i * band + j] = num;
-      } else {
-        // zero out the lower right triangle
-        a[i * band + j] = 0;
-      }
-    }
-  }
-}
-
 __global__ void initTransposeBandedWith(float num, float *a, int rows,
                                         int columns, int band) {
 
@@ -122,7 +91,7 @@ bool verify() {
   const int n2 = kBandDim;
 
   Matrix T0(n0, n1);                               // output
-  BandedMatrix T1(n0, n1, n2);                     // input
+  BandedMatrix T1(n0, n2);                         // input
   TransposedBandedMatrix T2(T1.columns(), n1, n2); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
@@ -189,7 +158,6 @@ void benchmark(int deviceId) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
 #if DEVICE_INIT
-
   dim3 threadsInit(kBlockDim, kBlockDim, 1);
   dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
 
