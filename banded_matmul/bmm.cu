@@ -7,6 +7,7 @@
 
 constexpr uint32_t kBandDim = 3;
 constexpr uint32_t kBlockDim = 16;
+constexpr uint32_t kMaxBlockDim = 1024;
 constexpr uint32_t N = 1024;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
@@ -135,30 +136,35 @@ void benchmark() {
   T1.randomInit(22);
   T2.randomInit(33);
 
-  dim3 threads(kBlockDim, kBlockDim, 1);
-  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+  for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
+       blockDim += kBlockDim) {
 
-  double elapsedTimeMilliseconds = 0.0f;
-  uint64_t iterations = 0;
-  float duration = 0.0f;
+    dim3 threads(blockDim, blockDim, 1);
+    dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-  cudaEventRecord(_start);
-  while (elapsedTimeMilliseconds < kTimelimit) {
-    bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                            T2.data);
-    cudaDeviceSynchronize();
-    cudaEventRecord(_stop);
-    cudaEventSynchronize(_stop);
+    double elapsedTimeMilliseconds = 0.0f;
+    uint64_t iterations = 0;
+    float duration = 0.0f;
 
-    cudaEventElapsedTime(&duration, _start, _stop);
-    elapsedTimeMilliseconds += duration;
-    iterations++;
+    cudaEventRecord(_start);
+    while (elapsedTimeMilliseconds < kTimelimit) {
+      bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                              T2.data);
+      cudaDeviceSynchronize();
+      cudaEventRecord(_stop);
+      cudaEventSynchronize(_stop);
+
+      cudaEventElapsedTime(&duration, _start, _stop);
+      elapsedTimeMilliseconds += duration;
+      iterations++;
+    }
+
+    const double flops = iterations * kNumberOfOps /
+                         (elapsedTimeMilliseconds / kMillisecondsInSeconds);
+    std::cout << "Blocksize: " << blockDim << ", Iterations: " << iterations
+              << ", FLOPS: " << flops << ", GFLOPS: " << flops / 1e9
+              << std::endl;
   }
-
-  const double flops = iterations * kNumberOfOps /
-                       (elapsedTimeMilliseconds / kMillisecondsInSeconds);
-  std::cout << "Iterations: " << iterations << ", FLOPS: " << flops
-            << ",  GFLOPS: " << flops / 1e9 << std::endl;
 
   cudaFree(T0.data);
   cudaFree(T1.data);
