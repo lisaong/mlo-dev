@@ -17,9 +17,9 @@
             }
         },
         {
-            "label": "build bmm (packedB)",
+            "label": "build bmm (shared memory)",
             "type": "shell",
-            "command": "nvcc -g -G -o bmm_packedB bmm_packedB.cu",
+            "command": "nvcc -g -G -o bmm_smem bmm_smem.cu",
             "problemMatcher": [
                 "$nvcc"
             ],

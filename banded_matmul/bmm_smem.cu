@@ -1,32 +1,7 @@
-// Packed B implementation of banded matrix multiplication
-// where the B matrix is packed to improve locality:
-//
-// [ x 0 0 0 0 0 0 0 ]      [ x x x x x x x x ]
-// [ x x 0 0 0 0 0 0 ]  =>  [ x x x x x x x 0 ]  B[1, 7] = 0
-// [ x x x 0 0 0 0 0 ]      [ x x x x x x 0 0 ]  B[2, 6] = B[2, 7] = 0
-// [ 0 x x x 0 0 0 0 ]
-// [ 0 0 x x x 0 0 0 ]
-// [ 0 0 0 x x x 0 0 ]
-// [ 0 0 0 0 x x x 0 ]
-// [ 0 0 0 0 0 x x x ]
-//
-// This assumes the A-matrix is banded:
-//
-// [ x x x 0 0 0 0 0 ]      [ x x x ]
-// [ 0 x x x 0 0 0 0 ]      [ x x x ]
-// [ 0 0 x x x 0 0 0 ]      [ x x x ]
-// [ 0 0 0 x x x 0 0 ]  =>  [ x x x ]
-// [ 0 0 0 0 x x x 0 ]      [ x x x ]
-// [ 0 0 0 0 0 x x x ]      [ x x x ]
-// [ 0 0 0 0 0 0 x x ]      [ x x 0 ]  A[6, 2] = 0
-// [ 0 0 0 0 0 0 0 x ]      [ x 0 0 ]  A[7, 1] = A[7, 2] = 0
-
+// Shared memory version of Banded Matrix Multiplication
 #include <cstdint>
 
 #include <cuda_runtime.h>
-
-// #define PREFETCH 1 // doesn't help
-#define DEVICE_INIT 1
 
 #define DEBUG 1
 #include "utils.h"
@@ -44,36 +19,16 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimeLimit = 10 * kMillisecondsInSeconds;
 
-__global__ void initTransposeBandedWith(float num, float *a, int rows,
-                                        int columns, int band) {
+__global__ void bandedMatMul_Smem(int n0, int n1, int n2, float *t0,
+                                  const float *t1, const float *t2) {
 
-  int i, j;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < band;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
-         j += blockDim.y * gridDim.y) {
-
-      if ((i + j) < rows) {
-        a[i * columns + j] = num;
-      } else {
-        // zero out the lower right triangle
-        a[i * columns + j] = 0;
-      }
-    }
-  }
-}
-
-__global__ void bandedMatMul_PackedB(int n0, int n1, int n2, float *t0,
-                                     const float *t1, const float *t2) {
-
-  int i, j;
+  int i, j, k;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
-
-      for (int k = 0; k < n2; ++k) {
-        t0[i * n1 + j] += t1[i * n2 + k] * t2[k * n1 + j];
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
+        t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
   }
@@ -90,9 +45,9 @@ bool verify() {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);                               // output
-  BandedMatrix T1(n0, n2);                         // input
-  TransposedBandedMatrix T2(T1.columns(), n1, n2); // input
+  Matrix T0(n0, n1);           // output
+  BandedMatrix T1(n0, n2);     // input
+  Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
@@ -101,12 +56,10 @@ bool verify() {
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-#if DEVICE_INIT
   initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
-  initTransposeBandedWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(),
-                                               T2.columns(), T2.band());
+  initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
   CHECK(cudaDeviceSynchronize());
 
 #if DEBUG
@@ -116,14 +69,7 @@ bool verify() {
   T2.print();
 #endif
 
-#else
-  T0.init(11.0f);
-  T1.init(22.0f);
-  T2.init(33.0f);
-#endif
-
-  bandedMatMul_PackedB<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                            T2.data);
+  bandedMatMul_Smem<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data, T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -149,9 +95,9 @@ void benchmark(int deviceId) {
   const int n1 = N;
   const int n2 = kBandDim;
 
-  Matrix T0(n0, n1);                               // output
-  BandedMatrix T1(n0, n1, n2);                     // input
-  TransposedBandedMatrix T2(T1.columns(), n1, n2); // input
+  Matrix T0(n0, n1);           // output
+  BandedMatrix T1(n0, n1, n2); // input
+  Matrix T2(T1.columns(), n1); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));

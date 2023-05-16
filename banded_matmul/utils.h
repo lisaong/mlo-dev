@@ -105,6 +105,16 @@ public:
   int columns() const { return _rows + _band; }
   int band() const { return _band; }
 
+  // The lower right triangle of a banded matrix is typcially padded with zeros.
+  // [ x x x 0 0 0 0 0 ]      [ x x x ]
+  // [ 0 x x x 0 0 0 0 ]      [ x x x ]
+  // [ 0 0 x x x 0 0 0 ]      [ x x x ]
+  // [ 0 0 0 x x x 0 0 ]  =>  [ x x x ]
+  // [ 0 0 0 0 x x x 0 ]      [ x x x ]
+  // [ 0 0 0 0 0 x x x ]      [ x x x ]
+  // [ 0 0 0 0 0 0 x x ]      [ x x 0 ]  A[6, 2] = 0
+  // [ 0 0 0 0 0 0 0 x ]      [ x 0 0 ]  A[7, 1] = A[7, 2] = 0
+
   void init(float value) {
     for (int i = 0; i < rows(); ++i) {
       for (int j = 0; j < _band; ++j) {
@@ -120,33 +130,6 @@ public:
 
 protected:
   int _band;
-};
-
-class TransposedBandedMatrix : public Matrix {
-
-public:
-  TransposedBandedMatrix(int columns, int band)
-      : Matrix(band, columns), _band(band) {}
-
-  int rows() const { return _columns + _band; }
-  int band() const { return _band; }
-
-  void init(float value) {
-    for (int i = 0; i < _band; ++i) {
-      for (int j = 0; j < columns(); ++j) {
-        if ((i + j) < rows()) {
-          data[i * columns() + j] = value;
-        } else {
-          // zero out the lower right triangle
-          data[i * columns() + j] = 0;
-        }
-      }
-    }
-  }
-
-protected:
-  int _band;
-  int _expandedRows;
 };
 
 void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
@@ -191,19 +174,5 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
   }
 
   free(T0_CPU.data);
-  return result;
-}
-
-bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
-                      const BandedMatrix &T1,
-                      const TransposedBandedMatrix &T2) {
-  Matrix T2_CPU(T2.rows(), T2.columns());
-
-  T2_CPU.data = reinterpret_cast<float *>(malloc(T2_CPU.size()));
-  T2_CPU.init(33.0f);
-
-  bool result = checkCorrectness(n0, n1, n2, T0, T1, T2_CPU);
-
-  free(T2_CPU.data);
   return result;
 }
