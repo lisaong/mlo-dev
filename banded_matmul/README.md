@@ -82,6 +82,29 @@ Skipping Blocksize: 120, invalid configuration argument
 Skipping Blocksize: 128, invalid configuration argument
 ```
 
+## Loading both T0 and T1 in shared memory
+
+```shell
+Using device 0
+Values match
+Blocksize: 16, Iterations: 72, FLOPS: 1.52138e+10, GFLOPS: 15.2138
+Blocksize: 24, Iterations: 74, FLOPS: 1.57493e+10, GFLOPS: 15.7493
+Blocksize: 32, Iterations: 43, FLOPS: 8.97539e+09, GFLOPS: 8.97539
+Skipping Blocksize: 40, invalid configuration argument
+Skipping Blocksize: 48, invalid configuration argument
+Skipping Blocksize: 56, invalid configuration argument
+Skipping Blocksize: 64, invalid configuration argument
+Skipping Blocksize: 72, invalid configuration argument
+Skipping Blocksize: 80, invalid configuration argument
+Skipping Blocksize: 88, invalid configuration argument
+Skipping Blocksize: 96, invalid configuration argument
+Skipping Blocksize: 104, invalid configuration argument
+Skipping Blocksize: 112, invalid configuration argument
+Skipping Blocksize: 120, invalid configuration argument
+Skipping Blocksize: 128, invalid configuration argument
+```
+
+
 # Profiling
 
 ## Install nsys
