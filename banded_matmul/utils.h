@@ -5,12 +5,10 @@
 #include <cuda_runtime.h>
 #include <iostream>
 
-cudaError_t CHECK(cudaError_t res) {
+void CHECK(cudaError_t res) {
   if (cudaSuccess != res) {
-    std::cerr << "CUDA Runtime Error: " << cudaGetErrorString(res) << std::endl;
-    exit(EXIT_FAILURE);
+    throw std::runtime_error(std::string(cudaGetErrorString(res)));
   }
-  return res;
 }
 
 __global__ void initWith(float num, float *a, int rows, int columns) {

@@ -13,7 +13,8 @@ constexpr uint32_t N = 1024;
 
 constexpr uint32_t kBandDim = N;
 constexpr uint32_t kBlockDim = 16;
-constexpr uint32_t kMaxBlockDim = 1024;
+constexpr uint32_t kBlockDimStep = 8;
+constexpr uint32_t kMaxBlockDim = 128;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
@@ -38,7 +39,7 @@ void run(int deviceId) {
   const int n0 = N; // n0: number of rows in T0 and T1
   const int n1 = N; // n1: number of columns in T0 and T2
   const int n2 = N; // n2: inner or shared dimension, i.e.
-                    //  number of columns in T1 and number of rows in T2
+                    //     number of columns in T1 and number of rows in T2
 
   Matrix T0(n0, n1);             // output
   BandedMatrix T1(n0, kBandDim); // input
@@ -51,16 +52,16 @@ void run(int deviceId) {
   // Initialize
   dim3 threadsInit(kBlockDim, kBlockDim, 1);
   dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
-  initWith<<<threadsInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
-                                         T0.columns());
-  initBandedWith<<<threadsInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
-                                               T1.columns(), T1.band());
-  initWith<<<threadsInit, threadsInit>>>(33.0f, T2.data, T2.rows(),
-                                         T2.columns());
+  initWith<<<blocksInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
+                                        T0.columns());
+  initBandedWith<<<blocksInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
+                                              T1.columns(), T1.band());
+  initWith<<<blocksInit, threadsInit>>>(33.0f, T2.data, T2.rows(),
+                                        T2.columns());
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_Naive<<<threadsInit, blocksInit>>>(n0, n1, n2, T0.data, T1.data,
+  bandedMatMul_Naive<<<blocksInit, threadsInit>>>(n0, n1, n2, T0.data, T1.data,
                                                   T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
@@ -75,33 +76,42 @@ void run(int deviceId) {
 
     // Try different block sizes
     for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
-         blockDim += kBlockDim) {
+         blockDim += kBlockDimStep) {
 
       dim3 threads(blockDim, blockDim, 1);
       dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
 
-      double elapsedTimeMilliseconds = 0.0f;
-      uint64_t iterations = 0;
-      float duration = 0.0f;
+      try {
+        double elapsedTimeMilliseconds = 0.0f;
+        uint64_t iterations = 0;
+        float duration = 0.0f;
 
-      // Runs the function until 10 seconds has elapsed
-      cudaEventRecord(_start);
-      while (elapsedTimeMilliseconds < kTimelimit) {
-        bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                                T2.data);
-        cudaDeviceSynchronize();
-        cudaEventRecord(_stop);
-        cudaEventSynchronize(_stop);
-        cudaEventElapsedTime(&duration, _start, _stop);
-        elapsedTimeMilliseconds += duration;
-        iterations++;
+        // Runs the function until 10 seconds has elapsed
+        cudaEventRecord(_start);
+        while (elapsedTimeMilliseconds < kTimelimit) {
+          bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                                  T2.data);
+
+          CHECK(cudaGetLastError());
+          CHECK(cudaDeviceSynchronize());
+
+          cudaEventRecord(_stop);
+          cudaEventSynchronize(_stop);
+          cudaEventElapsedTime(&duration, _start, _stop);
+          elapsedTimeMilliseconds += duration;
+          iterations++;
+        }
+
+        const double flops = iterations * kNumberOfOps /
+                             (elapsedTimeMilliseconds / kMillisecondsInSeconds);
+        std::cout << "Blocksize: " << blockDim << ", Iterations: " << iterations
+                  << ", FLOPS: " << flops << ", GFLOPS: " << flops / 1e9
+                  << std::endl;
+      } catch (const std::exception &e) {
+        std::cout << "Skipping Blocksize: " << blockDim << ", " << e.what()
+                  << std::endl;
+        continue;
       }
-
-      const double flops = iterations * kNumberOfOps /
-                           (elapsedTimeMilliseconds / kMillisecondsInSeconds);
-      std::cout << "Blocksize: " << blockDim << ", Iterations: " << iterations
-                << ", FLOPS: " << flops << ", GFLOPS: " << flops / 1e9
-                << std::endl;
     }
 
     cudaEventDestroy(_start);
