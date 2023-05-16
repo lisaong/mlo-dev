@@ -30,7 +30,7 @@ __global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
-      t1_s[i * n2 + k] = t1[i * n2 + k];
+      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
     }
   }
   __syncthreads();
@@ -40,7 +40,8 @@ __global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0[i * n1 + j] += t1_s[i * n2 + k] * t2[(i + k) * n1 + j];
+        t0[i * n1 + j] +=
+            t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) * n1 + j];
       }
     }
   }
@@ -74,7 +75,7 @@ void run(int deviceId) {
 
   // Verify
   bandedMatMul_smem<<<blocksInit, threadsInit,
-                      kBlockDim * kBlockDim * sizeof(float)>>>(
+                      threadsInit.x * threadsInit.y * sizeof(float)>>>(
       n0, n1, n2, T0.data, T1.data, T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
@@ -103,7 +104,7 @@ void run(int deviceId) {
         cudaEventRecord(_start);
         while (elapsedTimeMilliseconds < kTimelimit) {
           bandedMatMul_smem<<<blocks, threads,
-                              blockDim * blockDim * sizeof(float)>>>(
+                              threads.x * threads.y * sizeof(float)>>>(
               n0, n1, n2, T0.data, T1.data, T2.data);
 
           CHECK(cudaGetLastError());
