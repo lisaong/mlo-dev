@@ -17,7 +17,7 @@
             }
         },
         {
-            "label": "build bmm (shared memory)",
+            "label": "build bmm_smem",
             "type": "shell",
             "command": "nvcc -g -G -o bmm_smem bmm_smem.cu",
             "problemMatcher": [

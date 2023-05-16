@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 #include "utils.h"
 
 #if DEBUG
@@ -19,16 +19,28 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
 
-__global__ void bandedMatMul_Smem(int n0, int n1, int n2, float *t0,
+__global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
                                   const float *t1, const float *t2) {
 
   int i, j, k;
+
+  // load the t1 matrix into shared memory
+  extern __shared__ int t1_s[];
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
+         k += blockDim.y * gridDim.y) {
+      t1_s[i * n2 + k] = t1[i * n2 + k];
+    }
+  }
+  __syncthreads();
+
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
+        t0[i * n1 + j] += t1_s[i * n2 + k] * t2[(i + k) * n1 + j];
       }
     }
   }
@@ -61,8 +73,9 @@ void run(int deviceId) {
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_Smem<<<blocksInit, threadsInit>>>(n0, n1, n2, T0.data, T1.data,
-                                                 T2.data);
+  bandedMatMul_smem<<<blocksInit, threadsInit,
+                      kBlockDim * kBlockDim * sizeof(float)>>>(
+      n0, n1, n2, T0.data, T1.data, T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -89,8 +102,9 @@ void run(int deviceId) {
         // Runs the function until 10 seconds has elapsed
         cudaEventRecord(_start);
         while (elapsedTimeMilliseconds < kTimelimit) {
-          bandedMatMul_Smem<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
-                                                 T2.data);
+          bandedMatMul_smem<<<blocks, threads,
+                              blockDim * blockDim * sizeof(float)>>>(
+              n0, n1, n2, T0.data, T1.data, T2.data);
 
           CHECK(cudaGetLastError());
           CHECK(cudaDeviceSynchronize());
