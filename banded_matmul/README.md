@@ -41,10 +41,45 @@ GPU: NVIDIA A6000
 ## Naive
 
 ```shell
-sh run.sh 
+Using device 0
+Values match
+Blocksize: 16, Iterations: 56, FLOPS: 1.19722e+10, GFLOPS: 11.9722
+Blocksize: 24, Iterations: 47, FLOPS: 9.88634e+09, GFLOPS: 9.88634
+Blocksize: 32, Iterations: 36, FLOPS: 7.54052e+09, GFLOPS: 7.54052
+Skipping Blocksize: 40, invalid configuration argument
+Skipping Blocksize: 48, invalid configuration argument
+Skipping Blocksize: 56, invalid configuration argument
+Skipping Blocksize: 64, invalid configuration argument
+Skipping Blocksize: 72, invalid configuration argument
+Skipping Blocksize: 80, invalid configuration argument
+Skipping Blocksize: 88, invalid configuration argument
+Skipping Blocksize: 96, invalid configuration argument
+Skipping Blocksize: 104, invalid configuration argument
+Skipping Blocksize: 112, invalid configuration argument
+Skipping Blocksize: 120, invalid configuration argument
+Skipping Blocksize: 128, invalid configuration argument
+```
 
-Using device 3
+## Loading T1 in shared memory
 
+```shell
+Using device 0
+Values match
+Blocksize: 16, Iterations: 66, FLOPS: 1.37705e+10, GFLOPS: 13.7705
+Blocksize: 24, Iterations: 53, FLOPS: 1.11409e+10, GFLOPS: 11.1409
+Blocksize: 32, Iterations: 37, FLOPS: 7.57824e+09, GFLOPS: 7.57824
+Skipping Blocksize: 40, invalid configuration argument
+Skipping Blocksize: 48, invalid configuration argument
+Skipping Blocksize: 56, invalid configuration argument
+Skipping Blocksize: 64, invalid configuration argument
+Skipping Blocksize: 72, invalid configuration argument
+Skipping Blocksize: 80, invalid configuration argument
+Skipping Blocksize: 88, invalid configuration argument
+Skipping Blocksize: 96, invalid configuration argument
+Skipping Blocksize: 104, invalid configuration argument
+Skipping Blocksize: 112, invalid configuration argument
+Skipping Blocksize: 120, invalid configuration argument
+Skipping Blocksize: 128, invalid configuration argument
 ```
 
 # Profiling
