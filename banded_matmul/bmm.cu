@@ -3,21 +3,8 @@
 #include <cuda_runtime.h>
 
 // #define DEBUG 1
+#include "constants.h"
 #include "utils.h"
-
-#if DEBUG
-constexpr uint32_t N = 16;
-#else
-constexpr uint32_t N = 1024;
-#endif // DEBUG
-
-constexpr uint32_t kBandDim = N;
-constexpr uint32_t kBlockDim = 16;
-constexpr uint32_t kBlockDimStep = 8;
-constexpr uint32_t kMaxBlockDim = 128;
-constexpr uint32_t kNumberOfOps = 2 * N * N * N;
-constexpr uint32_t kMillisecondsInSeconds = 1000;
-constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
 
 __global__ void bandedMatMul_Naive(int n0, int n1, int n2, float *t0,
                                    const float *t1, const float *t2) {

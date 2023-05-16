@@ -43,43 +43,46 @@ GPU: NVIDIA A6000
 ```shell
 Using device 0
 Values match
-Blocksize: 16, Iterations: 56, FLOPS: 1.19722e+10, GFLOPS: 11.9722
-Blocksize: 24, Iterations: 47, FLOPS: 9.88634e+09, GFLOPS: 9.88634
-Blocksize: 32, Iterations: 36, FLOPS: 7.54052e+09, GFLOPS: 7.54052
+Blocksize: 1, Iterations: 21, FLOPS: 4.50047e+09, GFLOPS: 4.50047
+Blocksize: 2, Iterations: 38, FLOPS: 8.06564e+09, GFLOPS: 8.06564
+Blocksize: 3, Iterations: 54, FLOPS: 1.11806e+10, GFLOPS: 11.1806
+Blocksize: 4, Iterations: 66, FLOPS: 1.39674e+10, GFLOPS: 13.9674
+Blocksize: 5, Iterations: 67, FLOPS: 1.42881e+10, GFLOPS: 14.2881
+Blocksize: 6, Iterations: 66, FLOPS: 1.41225e+10, GFLOPS: 14.1225
+Blocksize: 7, Iterations: 65, FLOPS: 1.3676e+10, GFLOPS: 13.676
+Blocksize: 8, Iterations: 84, FLOPS: 1.76639e+10, GFLOPS: 17.6639
+Blocksize: 9, Iterations: 57, FLOPS: 1.21648e+10, GFLOPS: 12.1648
+Blocksize: 10, Iterations: 63, FLOPS: 1.34411e+10, GFLOPS: 13.4411
+Blocksize: 11, Iterations: 64, FLOPS: 1.36352e+10, GFLOPS: 13.6352
+Blocksize: 12, Iterations: 57, FLOPS: 1.21009e+10, GFLOPS: 12.1009
+Blocksize: 13, Iterations: 57, FLOPS: 1.2082e+10, GFLOPS: 12.082
+Blocksize: 14, Iterations: 56, FLOPS: 1.16946e+10, GFLOPS: 11.6946
+Blocksize: 15, Iterations: 58, FLOPS: 1.23224e+10, GFLOPS: 12.3224
+Blocksize: 16, Iterations: 58, FLOPS: 1.23393e+10, GFLOPS: 12.3393
+Blocksize: 17, Iterations: 53, FLOPS: 1.09683e+10, GFLOPS: 10.9683
+Blocksize: 18, Iterations: 52, FLOPS: 1.08051e+10, GFLOPS: 10.8051
+Blocksize: 19, Iterations: 51, FLOPS: 1.0918e+10, GFLOPS: 10.918
+Blocksize: 20, Iterations: 49, FLOPS: 1.04837e+10, GFLOPS: 10.4837
+Blocksize: 21, Iterations: 48, FLOPS: 1.02256e+10, GFLOPS: 10.2256
+Blocksize: 22, Iterations: 48, FLOPS: 1.01988e+10, GFLOPS: 10.1988
+Blocksize: 23, Iterations: 47, FLOPS: 9.76345e+09, GFLOPS: 9.76345
+Blocksize: 24, Iterations: 47, FLOPS: 9.89697e+09, GFLOPS: 9.89697
+Blocksize: 25, Iterations: 46, FLOPS: 9.51334e+09, GFLOPS: 9.51334
+Blocksize: 26, Iterations: 44, FLOPS: 9.44853e+09, GFLOPS: 9.44853
+Blocksize: 27, Iterations: 42, FLOPS: 9.00172e+09, GFLOPS: 9.00172
+Blocksize: 28, Iterations: 44, FLOPS: 9.23293e+09, GFLOPS: 9.23293
+Blocksize: 29, Iterations: 41, FLOPS: 8.74093e+09, GFLOPS: 8.74093
+Blocksize: 30, Iterations: 40, FLOPS: 8.56835e+09, GFLOPS: 8.56835
+Blocksize: 31, Iterations: 39, FLOPS: 7.98696e+09, GFLOPS: 7.98696
+Blocksize: 32, Iterations: 36, FLOPS: 7.53703e+09, GFLOPS: 7.53703
+Skipping Blocksize: 33, invalid configuration argument
+Skipping Blocksize: 34, invalid configuration argument
+Skipping Blocksize: 35, invalid configuration argument
+Skipping Blocksize: 36, invalid configuration argument
+Skipping Blocksize: 37, invalid configuration argument
+Skipping Blocksize: 38, invalid configuration argument
+Skipping Blocksize: 39, invalid configuration argument
 Skipping Blocksize: 40, invalid configuration argument
-Skipping Blocksize: 48, invalid configuration argument
-Skipping Blocksize: 56, invalid configuration argument
-Skipping Blocksize: 64, invalid configuration argument
-Skipping Blocksize: 72, invalid configuration argument
-Skipping Blocksize: 80, invalid configuration argument
-Skipping Blocksize: 88, invalid configuration argument
-Skipping Blocksize: 96, invalid configuration argument
-Skipping Blocksize: 104, invalid configuration argument
-Skipping Blocksize: 112, invalid configuration argument
-Skipping Blocksize: 120, invalid configuration argument
-Skipping Blocksize: 128, invalid configuration argument
-```
-
-## Loading T1 in shared memory
-
-```shell
-Using device 0
-Values match
-Blocksize: 16, Iterations: 66, FLOPS: 1.40425e+10, GFLOPS: 14.0425
-Blocksize: 24, Iterations: 53, FLOPS: 1.11449e+10, GFLOPS: 11.1449
-Blocksize: 32, Iterations: 37, FLOPS: 7.58615e+09, GFLOPS: 7.58615
-Skipping Blocksize: 40, invalid configuration argument
-Skipping Blocksize: 48, invalid configuration argument
-Skipping Blocksize: 56, invalid configuration argument
-Skipping Blocksize: 64, invalid configuration argument
-Skipping Blocksize: 72, invalid configuration argument
-Skipping Blocksize: 80, invalid configuration argument
-Skipping Blocksize: 88, invalid configuration argument
-Skipping Blocksize: 96, invalid configuration argument
-Skipping Blocksize: 104, invalid configuration argument
-Skipping Blocksize: 112, invalid configuration argument
-Skipping Blocksize: 120, invalid configuration argument
-Skipping Blocksize: 128, invalid configuration argument
 ```
 
 ## Loading both T0 and T1 in shared memory
@@ -87,21 +90,46 @@ Skipping Blocksize: 128, invalid configuration argument
 ```shell
 Using device 0
 Values match
-Blocksize: 16, Iterations: 72, FLOPS: 1.52138e+10, GFLOPS: 15.2138
-Blocksize: 24, Iterations: 74, FLOPS: 1.57493e+10, GFLOPS: 15.7493
-Blocksize: 32, Iterations: 43, FLOPS: 8.97539e+09, GFLOPS: 8.97539
+Blocksize: 1, Iterations: 31, FLOPS: 6.37505e+09, GFLOPS: 6.37505
+Blocksize: 2, Iterations: 62, FLOPS: 1.32159e+10, GFLOPS: 13.2159
+Blocksize: 3, Iterations: 92, FLOPS: 1.95945e+10, GFLOPS: 19.5945
+Blocksize: 4, Iterations: 119, FLOPS: 2.53178e+10, GFLOPS: 25.3178
+Blocksize: 5, Iterations: 139, FLOPS: 2.94961e+10, GFLOPS: 29.4961
+Blocksize: 6, Iterations: 112, FLOPS: 2.38121e+10, GFLOPS: 23.8121
+Blocksize: 7, Iterations: 117, FLOPS: 2.48224e+10, GFLOPS: 24.8224
+Blocksize: 8, Iterations: 123, FLOPS: 2.60096e+10, GFLOPS: 26.0096
+Blocksize: 9, Iterations: 107, FLOPS: 2.28657e+10, GFLOPS: 22.8657
+Blocksize: 10, Iterations: 108, FLOPS: 2.27974e+10, GFLOPS: 22.7974
+Blocksize: 11, Iterations: 97, FLOPS: 2.0563e+10, GFLOPS: 20.563
+Blocksize: 12, Iterations: 100, FLOPS: 2.11867e+10, GFLOPS: 21.1867
+Blocksize: 13, Iterations: 94, FLOPS: 1.99625e+10, GFLOPS: 19.9625
+Blocksize: 14, Iterations: 97, FLOPS: 2.0792e+10, GFLOPS: 20.792
+Blocksize: 15, Iterations: 100, FLOPS: 2.13562e+10, GFLOPS: 21.3562
+Blocksize: 16, Iterations: 74, FLOPS: 1.58194e+10, GFLOPS: 15.8194
+Blocksize: 17, Iterations: 95, FLOPS: 2.02418e+10, GFLOPS: 20.2418
+Blocksize: 18, Iterations: 89, FLOPS: 1.90742e+10, GFLOPS: 19.0742
+Blocksize: 19, Iterations: 87, FLOPS: 1.8631e+10, GFLOPS: 18.631
+Blocksize: 20, Iterations: 83, FLOPS: 1.75005e+10, GFLOPS: 17.5005
+Blocksize: 21, Iterations: 85, FLOPS: 1.80881e+10, GFLOPS: 18.0881
+Blocksize: 22, Iterations: 84, FLOPS: 1.78631e+10, GFLOPS: 17.8631
+Blocksize: 23, Iterations: 83, FLOPS: 1.76517e+10, GFLOPS: 17.6517
+Blocksize: 24, Iterations: 74, FLOPS: 1.55824e+10, GFLOPS: 15.5824
+Blocksize: 25, Iterations: 81, FLOPS: 1.73278e+10, GFLOPS: 17.3278
+Blocksize: 26, Iterations: 81, FLOPS: 1.73323e+10, GFLOPS: 17.3323
+Blocksize: 27, Iterations: 80, FLOPS: 1.68716e+10, GFLOPS: 16.8716
+Blocksize: 28, Iterations: 77, FLOPS: 1.636e+10, GFLOPS: 16.36
+Blocksize: 29, Iterations: 80, FLOPS: 1.71538e+10, GFLOPS: 17.1538
+Blocksize: 30, Iterations: 80, FLOPS: 1.69657e+10, GFLOPS: 16.9657
+Blocksize: 31, Iterations: 82, FLOPS: 1.72482e+10, GFLOPS: 17.2482
+Blocksize: 32, Iterations: 43, FLOPS: 8.9052e+09, GFLOPS: 8.9052
+Skipping Blocksize: 33, invalid configuration argument
+Skipping Blocksize: 34, invalid configuration argument
+Skipping Blocksize: 35, invalid configuration argument
+Skipping Blocksize: 36, invalid configuration argument
+Skipping Blocksize: 37, invalid configuration argument
+Skipping Blocksize: 38, invalid configuration argument
+Skipping Blocksize: 39, invalid configuration argument
 Skipping Blocksize: 40, invalid configuration argument
-Skipping Blocksize: 48, invalid configuration argument
-Skipping Blocksize: 56, invalid configuration argument
-Skipping Blocksize: 64, invalid configuration argument
-Skipping Blocksize: 72, invalid configuration argument
-Skipping Blocksize: 80, invalid configuration argument
-Skipping Blocksize: 88, invalid configuration argument
-Skipping Blocksize: 96, invalid configuration argument
-Skipping Blocksize: 104, invalid configuration argument
-Skipping Blocksize: 112, invalid configuration argument
-Skipping Blocksize: 120, invalid configuration argument
-Skipping Blocksize: 128, invalid configuration argument
 ```
 
 
