@@ -25,7 +25,7 @@ __global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
   int i, j, k;
 
   // load the t1 matrix into shared memory
-  extern __shared__ int t1_s[];
+  extern __shared__ float t1_s[];
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;

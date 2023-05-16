@@ -65,9 +65,9 @@ Skipping Blocksize: 128, invalid configuration argument
 ```shell
 Using device 0
 Values match
-Blocksize: 16, Iterations: 66, FLOPS: 1.37705e+10, GFLOPS: 13.7705
-Blocksize: 24, Iterations: 53, FLOPS: 1.11409e+10, GFLOPS: 11.1409
-Blocksize: 32, Iterations: 37, FLOPS: 7.57824e+09, GFLOPS: 7.57824
+Blocksize: 16, Iterations: 66, FLOPS: 1.40425e+10, GFLOPS: 14.0425
+Blocksize: 24, Iterations: 53, FLOPS: 1.11449e+10, GFLOPS: 11.1449
+Blocksize: 32, Iterations: 37, FLOPS: 7.58615e+09, GFLOPS: 7.58615
 Skipping Blocksize: 40, invalid configuration argument
 Skipping Blocksize: 48, invalid configuration argument
 Skipping Blocksize: 56, invalid configuration argument
