@@ -1,5 +1,5 @@
+// Naive banded matrix multiplication
 #include <cstdint>
-
 #include <cuda_runtime.h>
 
 // #define DEBUG 1
