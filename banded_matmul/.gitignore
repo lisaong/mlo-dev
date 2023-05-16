@@ -1,1 +1,6 @@
 bmm
+bmm_packedB
+
+# nsys
+*.sqlite
+*.nsys-rep
