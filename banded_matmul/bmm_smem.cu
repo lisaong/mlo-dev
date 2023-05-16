@@ -19,13 +19,13 @@ constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
 
-__global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
-                                  const float *t1, const float *t2) {
+__global__ void bandedMatMul_smem_t1(int n0, int n1, int n2, float *t0,
+                                     const float *t1, const float *t2) {
 
   int i, j, k;
 
   // load the t1 matrix into shared memory
-  extern __shared__ int t1_s[];
+  extern __shared__ float t1_s[];
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
@@ -43,6 +43,41 @@ __global__ void bandedMatMul_smem(int n0, int n1, int n2, float *t0,
         t0[i * n1 + j] +=
             t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) * n1 + j];
       }
+    }
+  }
+}
+
+__global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
+                                        const float *t1, const float *t2) {
+
+  int i, j, k;
+
+  // load the t1 and t0 matrices into shared memory
+  extern __shared__ float t0_s[];
+  float *t1_s = &t0_s[blockDim.x * blockDim.y];
+
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
+         k += blockDim.y * gridDim.y) {
+      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+    }
+  }
+  __syncthreads();
+
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+         j += blockDim.y * gridDim.y) {
+
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
+        t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
+            t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) * n1 + j];
+      }
+
+      // write back to global memory
+      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
 }
@@ -74,9 +109,9 @@ void run(int deviceId) {
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_smem<<<blocksInit, threadsInit,
-                      threadsInit.x * threadsInit.y * sizeof(float)>>>(
-      n0, n1, n2, T0.data, T1.data, T2.data);
+  bandedMatMul_smem_t0_t1<<<blocksInit, threadsInit,
+                            threadsInit.x * threadsInit.y * sizeof(float) *
+                                2>>>(n0, n1, n2, T0.data, T1.data, T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -103,8 +138,8 @@ void run(int deviceId) {
         // Runs the function until 10 seconds has elapsed
         cudaEventRecord(_start);
         while (elapsedTimeMilliseconds < kTimelimit) {
-          bandedMatMul_smem<<<blocks, threads,
-                              threads.x * threads.y * sizeof(float)>>>(
+          bandedMatMul_smem_t0_t1<<<
+              blocks, threads, threads.x * threads.y * sizeof(float) * 2>>>(
               n0, n1, n2, T0.data, T1.data, T2.data);
 
           CHECK(cudaGetLastError());
