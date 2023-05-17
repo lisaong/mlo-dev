@@ -9,3 +9,7 @@ nvcc --use_fast_math --std=c++17 -o bmm bmm.cu
 rm -rf bmm_smem
 nvcc --use_fast_math --std=c++17 -o bmm_smem bmm_smem.cu
 ./bmm_smem 0
+
+rm -rf bmm_wmma
+nvcc --arch=sm_86 --use_fast_math --std=c++17 -o bmm_wmma bmm_wmma.cu
+./bmm_wmma 0
