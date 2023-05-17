@@ -1,4 +1,4 @@
-// Banded matrix multiplication using tensorcore
+// Banded matrix multiplication using WMMA
 // cf: simple_wmma_tf32gemm from
 // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/3_CUDA_Features/tf32TensorCoreGemm/tf32TensorCoreGemm.cu
 
@@ -12,18 +12,19 @@ using namespace nvcuda;
 #include "constants.h"
 #include "utils.h"
 
-#define WARP_SIZE 32
-#define WARPS_PER_BLOCK 8
-#define THREADS_PER_BLOCK (WARP_SIZE * WARPS_PER_BLOCK)
+// constexpr int WARP_SIZE = 32;
+// constexpr int WARPS_PER_BLOCK = 8;
+// constexpr int THREADS_PER_BLOCK = WARP_SIZE * WARPS_PER_BLOCK;
 
-#define WMMA_M 16
-#define WMMA_N 16
-#define WMMA_K 16
+constexpr int WMMA_M = 16;
+constexpr int WMMA_N = 16;
+constexpr int WMMA_K = 16;
 
-#define M_TILES N / WMMA_M
-#define N_TILES N / WMMA_N
-#define K_TILES N / WMMA_K
+// constexpr int M_TILES = N / WMMA_M;
+// constexpr int N_TILES = N / WMMA_N;
+// constexpr int  K_TILES = N / WMMA_K;
 
+// TODO: Not yet correct
 __global__ void bandedMatMul_wmma(int n0, int n1, int n2, float *t0,
                                   const half *t1, const half *t2) {
 
@@ -46,9 +47,6 @@ __global__ void bandedMatMul_wmma(int n0, int n1, int n2, float *t0,
 
   wmma::fill_fragment(acc_frag, 0.0f);
 
-  // TODO: copy the correct entries from the T2 matrix
-  //    t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
-
   // Loop over k
   for (int i = 0; i < n2; i += WMMA_K) {
     int aCol = i;
@@ -60,14 +58,14 @@ __global__ void bandedMatMul_wmma(int n0, int n1, int n2, float *t0,
     if (aRow < n0 && aCol < n2 && bRow < n2 && bCol < n1) {
       // Load the inputs
       wmma::load_matrix_sync(a_frag, t1 + aCol + aRow * lda, lda);
-      wmma::load_matrix_sync(b_frag, t2 + bRow + bCol * ldb, ldb);
+      wmma::load_matrix_sync(b_frag, t2 + (aRow + bRow) + bCol * ldb, ldb);
 
       // Perform the matrix multiplication
       wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
     }
   }
 
-  // Load in the current value of c and add our result
+  // Load in the current value of C and add our result
   int cCol = warpN * WMMA_N;
   int cRow = warpM * WMMA_M;
 
@@ -76,7 +74,7 @@ __global__ void bandedMatMul_wmma(int n0, int n1, int n2, float *t0,
                            wmma::mem_row_major);
 
     for (int i = 0; i < c_frag.num_elements; i++) {
-      c_frag.x[i] = acc_frag.x[i] + c_frag.x[i];
+      c_frag.x[i] += acc_frag.x[i];
     }
 
     // Store the output
@@ -117,6 +115,10 @@ void run(int deviceId) {
 
   blockDim.x = 128;
   blockDim.y = 4;
+
+  gridDim.x =
+      (n0 + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32);
+  gridDim.y = (n1 + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y);
 
   bandedMatMul_wmma<<<gridDim, blockDim>>>(n0, n1, n2, T0.data, T1.data,
                                            T2.data);
