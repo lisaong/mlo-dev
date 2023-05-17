@@ -112,13 +112,20 @@ void run(int deviceId) {
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_wmma<<<blocksInit, threadsInit>>>(n0, n1, n2, T0.data, T1.data,
-                                                 T2.data);
+  dim3 gridDim;
+  dim3 blockDim;
+
+  blockDim.x = 128;
+  blockDim.y = 4;
+
+  bandedMatMul_wmma<<<gridDim, blockDim>>>(n0, n1, n2, T0.data, T1.data,
+                                           T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
   if (checkCorrectness(n0, n1, n2, T0, T1, T2)) {
 
+#if 0
     // Benchmark
     cudaEvent_t _start;
     cudaEvent_t _stop;
@@ -127,9 +134,10 @@ void run(int deviceId) {
 
     std::cout << "GridDim,BlockDim,FLOPS,GFLOPS" << std::endl;
 
+    // TODO: fix
     // Try different block sizes
-    for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
-         blockDim += kBlockDimStep) {
+    for (uint32_t blockDim = WARP_SIZE; blockDim <= kMaxBlockDim;
+         blockDim += WARP_SIZE) {
 
       dim3 threads(blockDim, blockDim, 1);
       dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
@@ -168,6 +176,7 @@ void run(int deviceId) {
 
     cudaEventDestroy(_start);
     cudaEventDestroy(_stop);
+#endif
   }
 
   cudaFree(T0.data);
