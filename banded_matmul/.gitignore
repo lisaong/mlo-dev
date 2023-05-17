@@ -4,3 +4,6 @@ bmm_smem
 # nsys
 *.sqlite
 *.nsys-rep
+
+# ncu
+*.ncu-rep

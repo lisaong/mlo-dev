@@ -43,46 +43,38 @@ GPU: NVIDIA A6000
 ```shell
 Using device 0
 Values match
-Blocksize: 1, Iterations: 21, FLOPS: 4.50047e+09, GFLOPS: 4.50047
-Blocksize: 2, Iterations: 38, FLOPS: 8.06564e+09, GFLOPS: 8.06564
-Blocksize: 3, Iterations: 54, FLOPS: 1.11806e+10, GFLOPS: 11.1806
-Blocksize: 4, Iterations: 66, FLOPS: 1.39674e+10, GFLOPS: 13.9674
-Blocksize: 5, Iterations: 67, FLOPS: 1.42881e+10, GFLOPS: 14.2881
-Blocksize: 6, Iterations: 66, FLOPS: 1.41225e+10, GFLOPS: 14.1225
-Blocksize: 7, Iterations: 65, FLOPS: 1.3676e+10, GFLOPS: 13.676
-Blocksize: 8, Iterations: 84, FLOPS: 1.76639e+10, GFLOPS: 17.6639
-Blocksize: 9, Iterations: 57, FLOPS: 1.21648e+10, GFLOPS: 12.1648
-Blocksize: 10, Iterations: 63, FLOPS: 1.34411e+10, GFLOPS: 13.4411
-Blocksize: 11, Iterations: 64, FLOPS: 1.36352e+10, GFLOPS: 13.6352
-Blocksize: 12, Iterations: 57, FLOPS: 1.21009e+10, GFLOPS: 12.1009
-Blocksize: 13, Iterations: 57, FLOPS: 1.2082e+10, GFLOPS: 12.082
-Blocksize: 14, Iterations: 56, FLOPS: 1.16946e+10, GFLOPS: 11.6946
-Blocksize: 15, Iterations: 58, FLOPS: 1.23224e+10, GFLOPS: 12.3224
-Blocksize: 16, Iterations: 58, FLOPS: 1.23393e+10, GFLOPS: 12.3393
-Blocksize: 17, Iterations: 53, FLOPS: 1.09683e+10, GFLOPS: 10.9683
-Blocksize: 18, Iterations: 52, FLOPS: 1.08051e+10, GFLOPS: 10.8051
-Blocksize: 19, Iterations: 51, FLOPS: 1.0918e+10, GFLOPS: 10.918
-Blocksize: 20, Iterations: 49, FLOPS: 1.04837e+10, GFLOPS: 10.4837
-Blocksize: 21, Iterations: 48, FLOPS: 1.02256e+10, GFLOPS: 10.2256
-Blocksize: 22, Iterations: 48, FLOPS: 1.01988e+10, GFLOPS: 10.1988
-Blocksize: 23, Iterations: 47, FLOPS: 9.76345e+09, GFLOPS: 9.76345
-Blocksize: 24, Iterations: 47, FLOPS: 9.89697e+09, GFLOPS: 9.89697
-Blocksize: 25, Iterations: 46, FLOPS: 9.51334e+09, GFLOPS: 9.51334
-Blocksize: 26, Iterations: 44, FLOPS: 9.44853e+09, GFLOPS: 9.44853
-Blocksize: 27, Iterations: 42, FLOPS: 9.00172e+09, GFLOPS: 9.00172
-Blocksize: 28, Iterations: 44, FLOPS: 9.23293e+09, GFLOPS: 9.23293
-Blocksize: 29, Iterations: 41, FLOPS: 8.74093e+09, GFLOPS: 8.74093
-Blocksize: 30, Iterations: 40, FLOPS: 8.56835e+09, GFLOPS: 8.56835
-Blocksize: 31, Iterations: 39, FLOPS: 7.98696e+09, GFLOPS: 7.98696
-Blocksize: 32, Iterations: 36, FLOPS: 7.53703e+09, GFLOPS: 7.53703
-Skipping Blocksize: 33, invalid configuration argument
-Skipping Blocksize: 34, invalid configuration argument
-Skipping Blocksize: 35, invalid configuration argument
-Skipping Blocksize: 36, invalid configuration argument
-Skipping Blocksize: 37, invalid configuration argument
-Skipping Blocksize: 38, invalid configuration argument
-Skipping Blocksize: 39, invalid configuration argument
-Skipping Blocksize: 40, invalid configuration argument
+GridDim: 1024, BlockDim: 1, Iterations: 21, FLOPS: 4.4446e+09, GFLOPS: 4.4446
+GridDim: 512, BlockDim: 2, Iterations: 38, FLOPS: 8.02375e+09, GFLOPS: 8.02375
+GridDim: 341, BlockDim: 3, Iterations: 53, FLOPS: 1.13308e+10, GFLOPS: 11.3308
+GridDim: 256, BlockDim: 4, Iterations: 66, FLOPS: 1.38938e+10, GFLOPS: 13.8938
+GridDim: 204, BlockDim: 5, Iterations: 67, FLOPS: 1.41319e+10, GFLOPS: 14.1319
+GridDim: 170, BlockDim: 6, Iterations: 66, FLOPS: 1.38136e+10, GFLOPS: 13.8136
+GridDim: 146, BlockDim: 7, Iterations: 64, FLOPS: 1.3607e+10, GFLOPS: 13.607
+GridDim: 128, BlockDim: 8, Iterations: 83, FLOPS: 1.75569e+10, GFLOPS: 17.5569
+GridDim: 113, BlockDim: 9, Iterations: 57, FLOPS: 1.19644e+10, GFLOPS: 11.9644
+GridDim: 102, BlockDim: 10, Iterations: 62, FLOPS: 1.32819e+10, GFLOPS: 13.2819
+GridDim: 93, BlockDim: 11, Iterations: 63, FLOPS: 1.34197e+10, GFLOPS: 13.4197
+GridDim: 85, BlockDim: 12, Iterations: 56, FLOPS: 1.20007e+10, GFLOPS: 12.0007
+GridDim: 78, BlockDim: 13, Iterations: 56, FLOPS: 1.20121e+10, GFLOPS: 12.0121
+GridDim: 73, BlockDim: 14, Iterations: 55, FLOPS: 1.16347e+10, GFLOPS: 11.6347
+GridDim: 68, BlockDim: 15, Iterations: 58, FLOPS: 1.21145e+10, GFLOPS: 12.1145
+GridDim: 64, BlockDim: 16, Iterations: 58, FLOPS: 1.21388e+10, GFLOPS: 12.1388
+GridDim: 60, BlockDim: 17, Iterations: 52, FLOPS: 1.1003e+10, GFLOPS: 11.003
+GridDim: 56, BlockDim: 18, Iterations: 51, FLOPS: 1.08321e+10, GFLOPS: 10.8321
+GridDim: 53, BlockDim: 19, Iterations: 51, FLOPS: 1.07423e+10, GFLOPS: 10.7423
+GridDim: 51, BlockDim: 20, Iterations: 49, FLOPS: 1.02662e+10, GFLOPS: 10.2662
+GridDim: 48, BlockDim: 21, Iterations: 48, FLOPS: 9.99048e+09, GFLOPS: 9.99048
+GridDim: 46, BlockDim: 22, Iterations: 48, FLOPS: 9.96348e+09, GFLOPS: 9.96348
+GridDim: 44, BlockDim: 23, Iterations: 46, FLOPS: 9.77553e+09, GFLOPS: 9.77553
+GridDim: 42, BlockDim: 24, Iterations: 46, FLOPS: 9.87436e+09, GFLOPS: 9.87436
+GridDim: 40, BlockDim: 25, Iterations: 45, FLOPS: 9.5015e+09, GFLOPS: 9.5015
+GridDim: 39, BlockDim: 26, Iterations: 44, FLOPS: 9.25867e+09, GFLOPS: 9.25867
+GridDim: 37, BlockDim: 27, Iterations: 42, FLOPS: 8.79311e+09, GFLOPS: 8.79311
+GridDim: 36, BlockDim: 28, Iterations: 44, FLOPS: 9.03963e+09, GFLOPS: 9.03963
+GridDim: 35, BlockDim: 29, Iterations: 41, FLOPS: 8.54128e+09, GFLOPS: 8.54128
+GridDim: 34, BlockDim: 30, Iterations: 40, FLOPS: 8.37832e+09, GFLOPS: 8.37832
+GridDim: 33, BlockDim: 31, Iterations: 38, FLOPS: 8.04553e+09, GFLOPS: 8.04553
+GridDim: 32, BlockDim: 32, Iterations: 36, FLOPS: 7.39213e+09, GFLOPS: 7.39213
 ```
 
 ## Loading both T0 and T1 in shared memory
@@ -90,62 +82,63 @@ Skipping Blocksize: 40, invalid configuration argument
 ```shell
 Using device 0
 Values match
-Blocksize: 1, Iterations: 31, FLOPS: 6.37505e+09, GFLOPS: 6.37505
-Blocksize: 2, Iterations: 62, FLOPS: 1.32159e+10, GFLOPS: 13.2159
-Blocksize: 3, Iterations: 92, FLOPS: 1.95945e+10, GFLOPS: 19.5945
-Blocksize: 4, Iterations: 119, FLOPS: 2.53178e+10, GFLOPS: 25.3178
-Blocksize: 5, Iterations: 139, FLOPS: 2.94961e+10, GFLOPS: 29.4961
-Blocksize: 6, Iterations: 112, FLOPS: 2.38121e+10, GFLOPS: 23.8121
-Blocksize: 7, Iterations: 117, FLOPS: 2.48224e+10, GFLOPS: 24.8224
-Blocksize: 8, Iterations: 123, FLOPS: 2.60096e+10, GFLOPS: 26.0096
-Blocksize: 9, Iterations: 107, FLOPS: 2.28657e+10, GFLOPS: 22.8657
-Blocksize: 10, Iterations: 108, FLOPS: 2.27974e+10, GFLOPS: 22.7974
-Blocksize: 11, Iterations: 97, FLOPS: 2.0563e+10, GFLOPS: 20.563
-Blocksize: 12, Iterations: 100, FLOPS: 2.11867e+10, GFLOPS: 21.1867
-Blocksize: 13, Iterations: 94, FLOPS: 1.99625e+10, GFLOPS: 19.9625
-Blocksize: 14, Iterations: 97, FLOPS: 2.0792e+10, GFLOPS: 20.792
-Blocksize: 15, Iterations: 100, FLOPS: 2.13562e+10, GFLOPS: 21.3562
-Blocksize: 16, Iterations: 74, FLOPS: 1.58194e+10, GFLOPS: 15.8194
-Blocksize: 17, Iterations: 95, FLOPS: 2.02418e+10, GFLOPS: 20.2418
-Blocksize: 18, Iterations: 89, FLOPS: 1.90742e+10, GFLOPS: 19.0742
-Blocksize: 19, Iterations: 87, FLOPS: 1.8631e+10, GFLOPS: 18.631
-Blocksize: 20, Iterations: 83, FLOPS: 1.75005e+10, GFLOPS: 17.5005
-Blocksize: 21, Iterations: 85, FLOPS: 1.80881e+10, GFLOPS: 18.0881
-Blocksize: 22, Iterations: 84, FLOPS: 1.78631e+10, GFLOPS: 17.8631
-Blocksize: 23, Iterations: 83, FLOPS: 1.76517e+10, GFLOPS: 17.6517
-Blocksize: 24, Iterations: 74, FLOPS: 1.55824e+10, GFLOPS: 15.5824
-Blocksize: 25, Iterations: 81, FLOPS: 1.73278e+10, GFLOPS: 17.3278
-Blocksize: 26, Iterations: 81, FLOPS: 1.73323e+10, GFLOPS: 17.3323
-Blocksize: 27, Iterations: 80, FLOPS: 1.68716e+10, GFLOPS: 16.8716
-Blocksize: 28, Iterations: 77, FLOPS: 1.636e+10, GFLOPS: 16.36
-Blocksize: 29, Iterations: 80, FLOPS: 1.71538e+10, GFLOPS: 17.1538
-Blocksize: 30, Iterations: 80, FLOPS: 1.69657e+10, GFLOPS: 16.9657
-Blocksize: 31, Iterations: 82, FLOPS: 1.72482e+10, GFLOPS: 17.2482
-Blocksize: 32, Iterations: 43, FLOPS: 8.9052e+09, GFLOPS: 8.9052
-Skipping Blocksize: 33, invalid configuration argument
-Skipping Blocksize: 34, invalid configuration argument
-Skipping Blocksize: 35, invalid configuration argument
-Skipping Blocksize: 36, invalid configuration argument
-Skipping Blocksize: 37, invalid configuration argument
-Skipping Blocksize: 38, invalid configuration argument
-Skipping Blocksize: 39, invalid configuration argument
-Skipping Blocksize: 40, invalid configuration argument
+GridDim: 1024, BlockDim: 1, FLOPS: 6.28527e+09, GFLOPS: 6.28527
+GridDim: 512, BlockDim: 2, FLOPS: 1.30269e+10, GFLOPS: 13.0269
+GridDim: 341, BlockDim: 3, FLOPS: 1.95321e+10, GFLOPS: 19.5321
+GridDim: 256, BlockDim: 4, FLOPS: 2.50464e+10, GFLOPS: 25.0464
+GridDim: 204, BlockDim: 5, FLOPS: 2.90732e+10, GFLOPS: 29.0732
+GridDim: 170, BlockDim: 6, FLOPS: 2.35608e+10, GFLOPS: 23.5608
+GridDim: 146, BlockDim: 7, FLOPS: 2.46638e+10, GFLOPS: 24.6638
+GridDim: 128, BlockDim: 8, FLOPS: 2.58231e+10, GFLOPS: 25.8231
+GridDim: 113, BlockDim: 9, FLOPS: 2.27405e+10, GFLOPS: 22.7405
+GridDim: 102, BlockDim: 10, FLOPS: 2.26456e+10, GFLOPS: 22.6456
+GridDim: 93, BlockDim: 11, FLOPS: 2.0411e+10, GFLOPS: 20.411
+GridDim: 85, BlockDim: 12, FLOPS: 2.1061e+10, GFLOPS: 21.061
+GridDim: 78, BlockDim: 13, FLOPS: 1.98267e+10, GFLOPS: 19.8267
+GridDim: 73, BlockDim: 14, FLOPS: 2.04912e+10, GFLOPS: 20.4912
+GridDim: 68, BlockDim: 15, FLOPS: 2.12457e+10, GFLOPS: 21.2457
+GridDim: 64, BlockDim: 16, FLOPS: 1.56349e+10, GFLOPS: 15.6349
+GridDim: 60, BlockDim: 17, FLOPS: 2.01745e+10, GFLOPS: 20.1745
+GridDim: 56, BlockDim: 18, FLOPS: 1.87657e+10, GFLOPS: 18.7657
+GridDim: 53, BlockDim: 19, FLOPS: 1.83403e+10, GFLOPS: 18.3403
+GridDim: 51, BlockDim: 20, FLOPS: 1.74651e+10, GFLOPS: 17.4651
+GridDim: 48, BlockDim: 21, FLOPS: 1.80357e+10, GFLOPS: 18.0357
+GridDim: 46, BlockDim: 22, FLOPS: 1.774e+10, GFLOPS: 17.74
+GridDim: 44, BlockDim: 23, FLOPS: 1.75419e+10, GFLOPS: 17.5419
+GridDim: 42, BlockDim: 24, FLOPS: 1.56089e+10, GFLOPS: 15.6089
+GridDim: 40, BlockDim: 25, FLOPS: 1.70866e+10, GFLOPS: 17.0866
+GridDim: 39, BlockDim: 26, FLOPS: 1.70595e+10, GFLOPS: 17.0595
+GridDim: 37, BlockDim: 27, FLOPS: 1.6799e+10, GFLOPS: 16.799
+GridDim: 36, BlockDim: 28, FLOPS: 1.63182e+10, GFLOPS: 16.3182
+GridDim: 35, BlockDim: 29, FLOPS: 1.68879e+10, GFLOPS: 16.8879
+GridDim: 34, BlockDim: 30, FLOPS: 1.69144e+10, GFLOPS: 16.9144
+GridDim: 33, BlockDim: 31, FLOPS: 1.71906e+10, GFLOPS: 17.1906
+GridDim: 32, BlockDim: 32, FLOPS: 8.96925e+09, GFLOPS: 8.96925
 ```
 
 
 # Profiling
 
-## Install nsys
+## nsys
 Download link (login required): https://developer.nvidia.com/gameworksdownload#?dn=nsight-systems-2023-2
 
 ```shell
 sudo apt install libglib2.0-0
 sudo dpkg -i NsightSystems-linux-cli-public-2023.2.1.122-3259852.deb
+
+nsys profile --stats=true --force-overwrite true -o bmm_smem ./bmm_smem
+nsys analyze bmm_smem.sqlite
 ```
 
-## Run nsys
+## NSight Compute CLI
+
+ncu supercedes nvprof
+
+Download link (login required): https://developer.nvidia.com/tools-overview/nsight-compute/get-started
+User guide: https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#nvprof-guide
 
 ```shell
-nsys profile --stats=true --force-overwrite true -o bmm ./bmm 3
-nsys analyze bmm.sqlite
+sudo ./nsight-compute-linux-2023.1.1.4-32678585.run
+
+sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -f -o profile bmm_smem
 ```
