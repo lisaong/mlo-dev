@@ -30,6 +30,21 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "build bmm_wmma",
+            "type": "shell",
+            "command": "nvcc -g -G -o bmm_wmma bmm_wmma.cu",
+            "problemMatcher": [
+                "$nvcc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/banded_matmul"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
