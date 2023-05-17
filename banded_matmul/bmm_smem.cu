@@ -141,7 +141,7 @@ void run(int deviceId) {
 
         const double flops = iterations * kNumberOfOps /
                              (elapsedTimeMilliseconds / kMillisecondsInSeconds);
-        std::cout << "Blocksize: " << blockDim << ", Iterations: " << iterations
+        std::cout << "GridDim: " << blocks.x << ", BlockDim: " << threads.x
                   << ", FLOPS: " << flops << ", GFLOPS: " << flops / 1e9
                   << std::endl;
       } catch (const std::exception &e) {
