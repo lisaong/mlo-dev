@@ -66,5 +66,9 @@ User guide: https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#n
 ```shell
 sudo ./nsight-compute-linux-2023.1.1.4-32678585.run
 
-sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -f -o profile bmm_smem
+sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -f -o profile bmm_smem 0 2
 ```
+
+Example (GridDim 11, BlockDim 96):
+
+![ncu](img/ncu_analysis_(11,103,1)x(96,103,1)_smem_t2colmaj.png)
