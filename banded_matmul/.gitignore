@@ -1,5 +1,6 @@
 bmm
 bmm_smem
+bmm_wmma
 
 # nsys
 *.sqlite

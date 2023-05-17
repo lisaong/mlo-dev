@@ -9,7 +9,7 @@
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/banded_matmul/bmm",
-            "args": "3",
+            "args": "0", // gpu id
             "preLaunchTask": "build bmm"
         },
         {
@@ -17,8 +17,16 @@
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/banded_matmul/bmm_smem",
-            "args": "0",
+            "args": "0", // gpu id
             "preLaunchTask": "build bmm_smem"
+        },
+        {
+            "name": "CUDA C++: Launch bmm_wmma",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/banded_matmul/bmm_wmma",
+            "args": "0", // gpu id
+            "preLaunchTask": "build bmm_wmma"
         }
     ]
 }
