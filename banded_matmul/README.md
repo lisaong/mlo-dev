@@ -135,17 +135,26 @@ Skipping Blocksize: 40, invalid configuration argument
 
 # Profiling
 
-## Install nsys
+## nsys
 Download link (login required): https://developer.nvidia.com/gameworksdownload#?dn=nsight-systems-2023-2
 
 ```shell
 sudo apt install libglib2.0-0
 sudo dpkg -i NsightSystems-linux-cli-public-2023.2.1.122-3259852.deb
+
+nsys profile --stats=true --force-overwrite true -o bmm_smem ./bmm_smem
+nsys analyze bmm_smem.sqlite
 ```
 
-## Run nsys
+## NSight Compute CLI
+
+ncu supercedes nvprof
+
+Download link (login required): https://developer.nvidia.com/tools-overview/nsight-compute/get-started
+User guide: https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#nvprof-guide
 
 ```shell
-nsys profile --stats=true --force-overwrite true -o bmm ./bmm 3
-nsys analyze bmm.sqlite
+sudo ./nsight-compute-linux-2023.1.1.4-32678585.run
+
+sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -o profile bmm_smem
 ```
