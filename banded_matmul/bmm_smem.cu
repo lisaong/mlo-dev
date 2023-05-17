@@ -18,9 +18,9 @@ __global__ void bandedMatMul_smem_t1(int n0, int n1, int n2, float *t0,
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
+      __syncthreads();
     }
   }
-  __syncthreads();
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
@@ -39,7 +39,7 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
 
   int i, j, k;
 
-  // load the t0 and t1 matrices into shared memory
+  // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[blockDim.x * blockDim.y];
 
@@ -49,9 +49,9 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
          k += blockDim.y * gridDim.y) {
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
+      __syncthreads();
     }
   }
-  __syncthreads();
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
@@ -61,6 +61,50 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
         t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
             t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) * n1 + j];
+      }
+
+      // write back to global memory
+      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+    }
+  }
+}
+
+__global__ void bandedMatMul_smem_t0_t1_t2(int n0, int n1, int n2, float *t0,
+                                           const float *t1, const float *t2) {
+
+  int i, j, k;
+
+  // load the t0 and t1 sub-matrices into shared memory
+  extern __shared__ float t0_s[];
+  float *t1_s = &t0_s[blockDim.x * blockDim.y];
+  float *t2_s = &t1_s[blockDim.x * blockDim.y];
+
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
+         k += blockDim.y * gridDim.y) {
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
+      __syncthreads();
+    }
+  }
+
+  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+       i += blockDim.x * gridDim.x) {
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+         j += blockDim.y * gridDim.y) {
+
+      // load t2 submatrix into shared memory
+      // this results in bank conflicts
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
+        t2_s[threadIdx.x * blockDim.y + threadIdx.y] = t2[(i + k) * n1 + j];
+        __syncthreads();
+      }
+
+      for (k = 0; k < n2 && (i + k) < n0; ++k) {
+        t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
+            t1_s[threadIdx.x * blockDim.y + threadIdx.y] *
+            t2_s[threadIdx.x * blockDim.y + threadIdx.y];
       }
 
       // write back to global memory
@@ -87,7 +131,8 @@ void run(int deviceId) {
   // Initialize
   dim3 threads(kBlockDim, kBlockDim, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2;
+  uint32_t smemSize =
+      threads.x * threads.y * sizeof(float) * 2 + n2 * sizeof(float);
 
   initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
@@ -119,7 +164,7 @@ void run(int deviceId) {
       threads.y = blockDim;
       blocks.x = ceildiv(n0, threads.x);
       blocks.y = ceildiv(n1, threads.y);
-      smemSize = threads.x * threads.y * sizeof(float) * 2;
+      smemSize = threads.x * threads.y * sizeof(float) * 2 + n2 * sizeof(float);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
