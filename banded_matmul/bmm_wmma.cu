@@ -1,11 +1,12 @@
 // Banded matrix multiplication using tensorcore
 // cf: simple_wmma_tf32gemm from
 // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/3_CUDA_Features/tf32TensorCoreGemm/tf32TensorCoreGemm.cu
-#include <cstdint>
+
 #include <cuda_runtime.h>
 #include <mma.h>
-
 using namespace nvcuda;
+
+#include <cstdint>
 
 // #define DEBUG 1
 #include "constants.h"

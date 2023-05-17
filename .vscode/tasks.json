@@ -34,7 +34,7 @@
         {
             "label": "build bmm_wmma",
             "type": "shell",
-            "command": "nvcc -g -G -o bmm_wmma bmm_wmma.cu",
+            "command": "nvcc -arch=sm_70 -g -G -o bmm_wmma bmm_wmma.cu",
             "problemMatcher": [
                 "$nvcc"
             ],
