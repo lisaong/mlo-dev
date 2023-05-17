@@ -111,11 +111,13 @@ void run(int deviceId) {
     cudaEventCreate(&_stop);
 
     // Try different block sizes
+    std::cout << "GridDim,BlockDim,FLOPS,GFLOPS" << std::endl;
+
     for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
          blockDim += kBlockDimStep) {
 
       dim3 threads(blockDim, blockDim, 1);
-      dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+      dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
@@ -141,9 +143,8 @@ void run(int deviceId) {
 
         const double flops = iterations * kNumberOfOps /
                              (elapsedTimeMilliseconds / kMillisecondsInSeconds);
-        std::cout << "GridDim: " << blocks.x << ", BlockDim: " << threads.x
-                  << ", FLOPS: " << flops << ", GFLOPS: " << flops / 1e9
-                  << std::endl;
+        std::cout << blocks.x << "," << threads.x << "," << flops << ","
+                  << flops / 1e9 << std::endl;
       } catch (const std::exception &e) {
         std::cout << "Skipping Blocksize: " << blockDim << ", " << e.what()
                   << std::endl;

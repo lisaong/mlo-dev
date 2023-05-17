@@ -174,3 +174,10 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix &T0,
   free(T0_CPU.data);
   return result;
 }
+
+int ceildiv(int value, int divisor) {
+  if (value % divisor == 0) {
+    return value / divisor;
+  }
+  return value / divisor + 1;
+}
