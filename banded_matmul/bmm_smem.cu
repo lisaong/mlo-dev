@@ -6,6 +6,12 @@
 #include "constants.h"
 #include "utils.h"
 
+enum class Strategy {
+  T1SharedMem = 0,
+  T0T1SharedMem = 1,
+  T0T1SharedMem_T2ColMajor = 2
+};
+
 __global__ void bandedMatMul_smem_t1(int n0, int n1, int n2, float *t0,
                                      const float *t1, const float *t2) {
 
@@ -106,7 +112,7 @@ __global__ void bandedMatMul_smem_t0_t1_t2colmajor(int n0, int n1, int n2,
   }
 }
 
-void run(int deviceId) {
+void run(int deviceId, Strategy strategy) {
 
   const int n0 = N; // n0: number of rows in T0 and T1
   const int n1 = N; // n1: number of columns in T0 and T2
@@ -122,11 +128,9 @@ void run(int deviceId) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  dim3 threads(kBlockDim, kBlockDim, 1);
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-
-  // shared memory: [t0 sub-matrix, t1 sub-matrix]
-  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2;
+  uint32_t smemSize;
 
   initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
@@ -135,8 +139,28 @@ void run(int deviceId) {
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_smem_t0_t1_t2colmajor<<<blocks, threads, smemSize>>>(
-      n0, n1, n2, T0.data, T1.data, T2.data);
+  switch (strategy) {
+  case Strategy::T1SharedMem:
+    // shared memory: [t0 sub-matrix]
+    smemSize = threads.x * threads.y * sizeof(float);
+    bandedMatMul_smem_t1<<<blocks, threads, smemSize>>>(n0, n1, n2, T0.data,
+                                                        T1.data, T2.data);
+    break;
+  case Strategy::T0T1SharedMem:
+    // shared memory: [t0 sub-matrix, t1 sub-matrix]
+    smemSize = threads.x * threads.y * sizeof(float) * 2;
+    bandedMatMul_smem_t0_t1<<<blocks, threads, smemSize>>>(n0, n1, n2, T0.data,
+                                                           T1.data, T2.data);
+    break;
+  default:
+  case Strategy::T0T1SharedMem_T2ColMajor:
+    // shared memory: [t0 sub-matrix, t1 sub-matrix]
+    smemSize = threads.x * threads.y * sizeof(float) * 2;
+    bandedMatMul_smem_t0_t1_t2colmajor<<<blocks, threads, smemSize>>>(
+        n0, n1, n2, T0.data, T1.data, T2.data);
+    break;
+  };
+
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -151,11 +175,11 @@ void run(int deviceId) {
     // Try different block sizes
     std::cout << "GridDim,BlockDim,FLOPS,GFLOPS" << std::endl;
 
-    for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
-         blockDim += kBlockDimStep) {
+    for (uint32_t blockDim = kBlockDimX; blockDim <= kBlockDimXMax;
+         blockDim += kBlockDimXStep) {
 
       threads.x = blockDim;
-      threads.y = blockDim;
+      threads.y = kMaxBlockDim / blockDim;
       blocks.x = ceildiv(n0, threads.x);
       blocks.y = ceildiv(n1, threads.y);
       smemSize = threads.x * threads.y * sizeof(float) * 2;
@@ -168,8 +192,28 @@ void run(int deviceId) {
         // Runs the function until 10 seconds has elapsed
         cudaEventRecord(_start);
         while (elapsedTimeMilliseconds < kTimelimit) {
-          bandedMatMul_smem_t0_t1_t2colmajor<<<blocks, threads, smemSize>>>(
-              n0, n1, n2, T0.data, T1.data, T2.data);
+
+          switch (strategy) {
+          case Strategy::T1SharedMem:
+            // shared memory: [t0 sub-matrix]
+            smemSize = threads.x * threads.y * sizeof(float);
+            bandedMatMul_smem_t1<<<blocks, threads, smemSize>>>(
+                n0, n1, n2, T0.data, T1.data, T2.data);
+            break;
+          case Strategy::T0T1SharedMem:
+            // shared memory: [t0 sub-matrix, t1 sub-matrix]
+            smemSize = threads.x * threads.y * sizeof(float) * 2;
+            bandedMatMul_smem_t0_t1<<<blocks, threads, smemSize>>>(
+                n0, n1, n2, T0.data, T1.data, T2.data);
+            break;
+          default:
+          case Strategy::T0T1SharedMem_T2ColMajor:
+            // shared memory: [t0 sub-matrix, t1 sub-matrix]
+            smemSize = threads.x * threads.y * sizeof(float) * 2;
+            bandedMatMul_smem_t0_t1_t2colmajor<<<blocks, threads, smemSize>>>(
+                n0, n1, n2, T0.data, T1.data, T2.data);
+            break;
+          };
 
           CHECK(cudaGetLastError());
           CHECK(cudaDeviceSynchronize());
@@ -203,6 +247,7 @@ void run(int deviceId) {
 
 int main(int argc, const char **argv) {
   int deviceId;
+  Strategy strategy = Strategy::T0T1SharedMem_T2ColMajor;
 
   if (argc > 1) {
     deviceId = atoi(argv[1]);
@@ -212,6 +257,11 @@ int main(int argc, const char **argv) {
   }
   std::cout << "Using device " << deviceId << std::endl;
 
-  run(deviceId);
+  if (argc > 2) {
+    strategy = static_cast<Strategy>(atoi(argv[2]));
+  }
+  std::cout << "Using strategy " << static_cast<int>(strategy) << std::endl;
+
+  run(deviceId, strategy);
   return 0;
 }

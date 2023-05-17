@@ -37,19 +37,17 @@ void run(int deviceId) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  dim3 threadsInit(kBlockDim, kBlockDim, 1);
-  dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
-  initWith<<<blocksInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
-                                        T0.columns());
-  initBandedWith<<<blocksInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
-                                              T1.columns(), T1.band());
-  initWith<<<blocksInit, threadsInit>>>(33.0f, T2.data, T2.rows(),
-                                        T2.columns());
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
+                                      T1.band());
+  initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
   CHECK(cudaDeviceSynchronize());
 
   // Verify
-  bandedMatMul_Naive<<<blocksInit, threadsInit>>>(n0, n1, n2, T0.data, T1.data,
-                                                  T2.data);
+  bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,
+                                          T2.data);
   CHECK(cudaGetLastError());
   CHECK(cudaDeviceSynchronize());
 
@@ -64,11 +62,14 @@ void run(int deviceId) {
     std::cout << "GridDim,BlockDim,FLOPS,GFLOPS" << std::endl;
 
     // Try different block sizes
-    for (uint32_t blockDim = kBlockDim; blockDim <= kMaxBlockDim;
-         blockDim += kBlockDimStep) {
+    // https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#thread-and-block-heuristics
+    for (uint32_t blockDim = kBlockDimX; blockDim <= kBlockDimXMax;
+         blockDim += kBlockDimXStep) {
 
-      dim3 threads(blockDim, blockDim, 1);
-      dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
+      threads.x = blockDim;
+      threads.y = kMaxBlockDim / blockDim;
+      blocks.x = ceildiv(n0, threads.x);
+      blocks.y = ceildiv(n1, threads.y);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
