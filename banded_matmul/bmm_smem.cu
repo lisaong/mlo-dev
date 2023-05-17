@@ -1,5 +1,4 @@
 // Shared memory banded matrix multiplication
-#include <cmath>
 #include <cstdint>
 #include <cuda_runtime.h>
 
@@ -116,7 +115,7 @@ void run(int deviceId) {
          blockDim += kBlockDimStep) {
 
       dim3 threads(blockDim, blockDim, 1);
-      dim3 blocks(ceil(n0 / threads.x), ceil(n1 / threads.y), 1);
+      dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
