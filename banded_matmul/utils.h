@@ -4,6 +4,9 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <cuda_runtime.h>
+#include <mma.h>
+
 void CHECK(cudaError_t res) {
   if (cudaSuccess != res) {
     throw std::runtime_error(std::string(cudaGetErrorString(res)));
