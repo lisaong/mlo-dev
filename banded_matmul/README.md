@@ -140,5 +140,5 @@ User guide: https://docs.nvidia.com/nsight-compute/NsightComputeCli/index.html#n
 ```shell
 sudo ./nsight-compute-linux-2023.1.1.4-32678585.run
 
-sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -o profile bmm_smem
+sudo /usr/local/NVIDIA-Nsight-Compute-2023.1/ncu -f -o profile bmm_smem
 ```
