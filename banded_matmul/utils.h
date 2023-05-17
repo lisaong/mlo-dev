@@ -13,7 +13,8 @@ void CHECK(cudaError_t res) {
   }
 }
 
-__global__ void initWith(float num, float *a, int rows, int columns) {
+template <typename T>
+__global__ void initWith(T num, T *a, int rows, int columns) {
 
   int i, j;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
@@ -25,39 +26,8 @@ __global__ void initWith(float num, float *a, int rows, int columns) {
   }
 }
 
-__global__ void initWith(half num, half *a, int rows, int columns) {
-
-  int i, j;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < columns;
-         j += blockDim.y * gridDim.y) {
-      a[i * columns + j] = num;
-    }
-  }
-}
-
-__global__ void initBandedWith(float num, float *a, int rows, int columns,
-                               int band) {
-
-  int i, j;
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < band;
-         j += blockDim.y * gridDim.y) {
-
-      if ((i + j) < columns) {
-        a[i * band + j] = num;
-      } else {
-        // zero out the lower right triangle
-        a[i * band + j] = 0;
-      }
-    }
-  }
-}
-
-__global__ void initBandedWith(half num, half *a, int rows, int columns,
-                               int band) {
+template <typename T>
+__global__ void initBandedWith(T num, T *a, int rows, int columns, int band) {
 
   int i, j;
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < rows;
