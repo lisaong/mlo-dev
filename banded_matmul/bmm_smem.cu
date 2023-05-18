@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
