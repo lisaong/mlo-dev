@@ -21,7 +21,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
-  float *t1_s = &t0_s[blockDim.x * blockDim.y];
+  float *t1_s = &t0_s[cta.size()];
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
