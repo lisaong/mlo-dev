@@ -53,7 +53,7 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
       __syncthreads();
     }
@@ -70,7 +70,7 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
       }
 
       // write back to global memory
-      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
 }
@@ -89,7 +89,7 @@ __global__ void bandedMatMul_smem_t0_t1_t2colmajor(int n0, int n1, int n2,
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
       __syncthreads();
     }
@@ -107,7 +107,7 @@ __global__ void bandedMatMul_smem_t0_t1_t2colmajor(int n0, int n1, int n2,
       }
 
       // write back to global memory
-      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
 }
@@ -182,7 +182,6 @@ void run(int deviceId, Strategy strategy) {
       threads.y = kMaxBlockDim / blockDim;
       blocks.x = ceildiv(n0, threads.x);
       blocks.y = ceildiv(n1, threads.y);
-      smemSize = threads.x * threads.y * sizeof(float) * 2;
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
