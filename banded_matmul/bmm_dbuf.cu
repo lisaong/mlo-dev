@@ -45,47 +45,56 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   }
 }
 
+// __device__ void compute(int n0, int n1, int n2, int float *t0, const float *t1,
+//                         const float *t2) {
+
+//   for (int i = 0; i < n0; ++i) {
+//     for (int j = 0; j < n1; ++j) {
+//       for (int k = 0; (i + k) < n2; ++k) {
+//         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
+//       }
+//     }
+//   }
+// }
+
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
                                        const float *t1, const float *t2) {
 
-  int i, j, k;
-
   auto cta = cg::this_thread_block();
 
-  // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
-  float *t1_s = &t0_s[blockDim.x * blockDim.y];
+  float *t1_s = &t0_s[cta.size()];
 
-  cg::memcpy_async(cta, t0_s, &t0[blockIdx.x * blockDim.x * n1],
-                   blockDim.x * n1 * sizeof(float));
+  size_t subsets = (n0 * n0) / cta.size();
+  auto blockSizes = cta.dim_threads();
 
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+  // load the t0 and t1 sub-matrices into shared memory
+  cg::memcpy_async(cta, t0_s, &t0[cta.group_index().x * n1],
+                   sizeof(float) * cta.size());
+  cg::memcpy_async(cta, t1_s, &t1[cta.group_index().x * n2],
+                   sizeof(float) * cta.size());
+
+  cg::wait(cta);
+
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
-    for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
-         k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
-      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
-    }
-  }
-
-  cg::sync(cta);
-
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+    for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
 
       // treat t2 as column major
-      for (k = 0; k < n2 && (i + k) < n0; ++k) {
+      for (int k = 0; k < n2 && (i + k) < n0; ++k) {
         t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
             t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
       }
-      cg::sync(cta);
-
-      // write back to global memory
-      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
+
+  cta.sync();
+
+  // write back to t0 global memory
+  cg::memcpy_async(cta, &t0[cta.group_index().x * n1], t0_s,
+                   sizeof(float) * cta.size());
+  cg::wait(cta);
 }
 
 void run(int deviceId, Strategy strategy) {
