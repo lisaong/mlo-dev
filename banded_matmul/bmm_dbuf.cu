@@ -29,14 +29,8 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
          j += blockDim.y * gridDim.y) {
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + j];
-    }
-  }
-  cta.sync();
 
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.y * gridDim.y) {
+      cta.sync();
 
       // treat t2 as column major
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
