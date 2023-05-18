@@ -25,13 +25,13 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
-    for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
-         k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
-      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
+    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+         j += blockDim.y * gridDim.y) {
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
+      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + j];
     }
   }
-  cg::sync(cta);
+  cta.sync();
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
@@ -43,7 +43,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
             t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
       }
-      cg::sync(cta);
+      cta.sync();
 
       // write back to global memory
       t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
