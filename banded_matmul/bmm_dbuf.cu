@@ -45,7 +45,8 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   }
 }
 
-// __device__ void compute(int n0, int n1, int n2, int float *t0, const float *t1,
+// __device__ void compute(int n0, int n1, int n2, int float *t0, const float
+// *t1,
 //                         const float *t2) {
 
 //   for (int i = 0; i < n0; ++i) {
@@ -65,18 +66,14 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[cta.size()];
 
-  size_t subsets = (n0 * n0) / cta.size();
-  auto blockSizes = cta.dim_threads();
-
   // load the t0 and t1 sub-matrices into shared memory
   cg::memcpy_async(cta, t0_s, &t0[cta.group_index().x * n1],
                    sizeof(float) * cta.size());
   cg::memcpy_async(cta, t1_s, &t1[cta.group_index().x * n2],
                    sizeof(float) * cta.size());
-
   cg::wait(cta);
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
+  for (int i = cta.group_index().x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
@@ -113,7 +110,8 @@ void run(int deviceId, Strategy strategy) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  dim3 threads(16, 16, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   uint32_t smemSize;
 
