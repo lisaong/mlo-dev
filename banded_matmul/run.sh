@@ -23,6 +23,14 @@ echo "Running bmm_smem: T0 and T1 in shared memory, T2 column major"
 ./bmm_smem 0 2
 echo "=================="
 
+rm -rf bmm_dbuf
+# nvcc --gpu-architecture=compute_86 --use_fast_math --std=c++17 -o bmm_dbuf bmm_dbuf.cu
+nvcc --use_fast_math --std=c++17 -o bmm_dbuf bmm_dbuf.cu
+
+echo "Running bmm_dbuf: Synchronous copy"
+./bmm_dbuf 0 0
+
+
 # rm -rf bmm_wmma
 # nvcc --gpu-architecture=compute_86 --use_fast_math --std=c++17 -o bmm_wmma bmm_wmma.cu
 # ./bmm_wmma 0

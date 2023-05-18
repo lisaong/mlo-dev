@@ -21,6 +21,14 @@
             "preLaunchTask": "build bmm_smem"
         },
         {
+            "name": "CUDA C++: Launch bmm_dbuf",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/banded_matmul/bmm_dbuf",
+            "args": "0", // gpu id
+            "preLaunchTask": "build bmm_dbuf"
+        },
+        {
             "name": "CUDA C++: Launch bmm_wmma",
             "type": "cuda-gdb",
             "request": "launch",
