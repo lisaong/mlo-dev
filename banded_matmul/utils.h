@@ -175,7 +175,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix<TOut> &T0,
   Matrix<TOut> T0_CPU(T0.rows(), T0.columns());
 
   T0_CPU.data = reinterpret_cast<TOut *>(malloc(T0_CPU.size()));
-  T0_CPU.init(11.0f);
+  T0_CPU.randomInit(123);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
 

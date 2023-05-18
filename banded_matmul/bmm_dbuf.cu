@@ -62,6 +62,9 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[blockDim.x * blockDim.y];
 
+  cg::memcpy_async(cta, t0_s, &t0[blockIdx.x * blockDim.x * n1],
+                   blockDim.x * n1 * sizeof(float));
+
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
@@ -111,7 +114,8 @@ void run(int deviceId, Strategy strategy) {
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   uint32_t smemSize;
 
-  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  T0.randomInit(123);
+  CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
   initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
