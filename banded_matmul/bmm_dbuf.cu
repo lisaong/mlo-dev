@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "utils.h"
 
+// https://developer.nvidia.com/blog/cooperative-groups/
 namespace cg = cooperative_groups;
 
 enum class Strategy { SynchronousCopy = 0 };
@@ -28,9 +29,9 @@ __global__ void bandedMatMul_copysync(int n0, int n1, int n2, float *t0,
          k += blockDim.y * gridDim.y) {
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
-      __syncthreads();
     }
   }
+  cg::sync(cta);
 
   for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
@@ -42,6 +43,7 @@ __global__ void bandedMatMul_copysync(int n0, int n1, int n2, float *t0,
         t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
             t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
       }
+      cg::sync(cta);
 
       // write back to global memory
       t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
