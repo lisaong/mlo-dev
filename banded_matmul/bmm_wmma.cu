@@ -106,7 +106,7 @@ void run(int deviceId) {
   CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
   initBandedWith<<<blocks, threads>>>(static_cast<half>(22.0f), T1.data,
                                       T1.rows(), T1.columns(), T1.band());
-  initBandedWith<<<blocks, threads>>>(static_cast<half>(33.0f), T2.data,
+  initWith<<<blocks, threads>>>(static_cast<half>(33.0f), T2.data,
                                       T2.rows(), T2.columns());
   CHECK(cudaDeviceSynchronize());
 
