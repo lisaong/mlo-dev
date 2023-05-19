@@ -56,20 +56,22 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   auto cta = cg::this_thread_block();
   float *t1_s = &t0_s[cta.size()];
 
-  // cooperatively copy each tile of t0 and t1 to shared memory
-  // copy blockDim.x rows, starting at the column offset
-  // for that group, to form a blockDim.x * blockDim.y tile
-  int numBlocks = blockDim.x;
+  // cooperatively copy each blockDim.x * blockDim.y tile of t0 and t1 to shared memory
+  int numRows = blockDim.x;
   int columnOffset = cta.group_index().y * blockDim.y;
   int columnStride = blockDim.y;
 
-  for (int b = 0; b < numBlocks; ++b) {
+  for (int b = 0; b < numRows; ++b) {
+    // copy the row
     int rowOffset = cta.group_index().x * blockDim.x + b;
     cg::memcpy_async(cta, t0_s, &t0[rowOffset * n1 + columnOffset],
                      sizeof(float) * columnStride);
     cg::memcpy_async(cta, t1_s, &t1[rowOffset * n2 + columnOffset],
                      sizeof(float) * columnStride);
     cg::wait(cta);
+    // compute the row
+
+
   }
 
   // // load the t0 and t1 sub-matrices into shared memory
