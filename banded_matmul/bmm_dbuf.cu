@@ -58,9 +58,9 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
   // cooperatively copy each blockDim.x * blockDim.y tile of t0 and t1 to shared
   // memory
-  int numRows = blockDim.x;
-  int columnOffset = cta.group_index().y * blockDim.y;
-  int columnStride = blockDim.y;
+  int numRows = cta.dim_threads().x;
+  int columnOffset = cta.group_index().y * cta.dim_threads().y;
+  int columnStride = cta.dim_threads().y;
 
   for (int b = 0; b < numRows; ++b) {
     // copy the row
@@ -73,11 +73,12 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   }
 
   // compute the tile
-  int i = cta.group_index().x * blockDim.x + threadIdx.x;
-  int j = cta.group_index().y * blockDim.y + threadIdx.y;
-  for (int k = 0; k < n2 && (i + k) < n0; ++k) {
-    t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
-        t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
+  int i = cta.group_index().x * cta.dim_threads().y + cta.thread_index().x;
+  int j = cta.group_index().y * cta.dim_threads().y + cta.thread_index().y;
+  for (int k = 0; (i + k) < n1; ++k) {
+    t0_s[cta.thread_index().x * blockDim.y + cta.thread_index().y] +=
+        t1_s[cta.thread_index().x * blockDim.y + cta.thread_index().y] *
+        t2[(i + k) + j * n2];
   }
   cta.sync();
 
