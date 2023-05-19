@@ -39,11 +39,7 @@ void run(int deviceId) {
   // Initialize
   dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
-  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
-                                      T1.band());
-  initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
-  CHECK(cudaDeviceSynchronize());
+  fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
   // Verify
   bandedMatMul_Naive<<<blocks, threads>>>(n0, n1, n2, T0.data, T1.data,

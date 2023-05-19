@@ -1,5 +1,6 @@
 bmm
 bmm_smem
+bmm_dbuf
 bmm_wmma
 
 # nsys

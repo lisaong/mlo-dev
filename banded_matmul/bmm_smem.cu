@@ -53,7 +53,7 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
       __syncthreads();
     }
@@ -70,7 +70,7 @@ __global__ void bandedMatMul_smem_t0_t1(int n0, int n1, int n2, float *t0,
       }
 
       // write back to global memory
-      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
 }
@@ -89,7 +89,7 @@ __global__ void bandedMatMul_smem_t0_t1_t2colmajor(int n0, int n1, int n2,
        i += blockDim.x * gridDim.x) {
     for (k = blockIdx.y * blockDim.y + threadIdx.y; k < n2;
          k += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = 0.0f;
+      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + k];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + k];
       __syncthreads();
     }
@@ -107,7 +107,7 @@ __global__ void bandedMatMul_smem_t0_t1_t2colmajor(int n0, int n1, int n2,
       }
 
       // write back to global memory
-      t0[i * n1 + j] += t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
     }
   }
 }
@@ -119,9 +119,11 @@ void run(int deviceId, Strategy strategy) {
   const int n2 = N; // n2: inner or shared dimension, i.e.
                     //     number of columns in T1 and number of rows in T2
 
-  Matrix<float> T0(n0, n1);             // output
-  BandedMatrix<float> T1(n0, kBandDim); // input
-  Matrix<float> T2(T1.columns(), n1);   // input
+  bool colMajor = strategy == Strategy::T0T1SharedMem_T2ColMajor;
+
+  Matrix<float> T0(n0, n1);                     // output
+  BandedMatrix<float> T1(n0, kBandDim);         // input
+  Matrix<float> T2(T1.columns(), n1, colMajor); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
@@ -130,15 +132,10 @@ void run(int deviceId, Strategy strategy) {
   // Initialize
   dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-  uint32_t smemSize;
-
-  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
-  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
-                                      T1.band());
-  initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
-  CHECK(cudaDeviceSynchronize());
+  fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
   // Verify
+  uint32_t smemSize;
   switch (strategy) {
   case Strategy::T1SharedMem:
     // shared memory: [t0 sub-matrix]
@@ -182,7 +179,6 @@ void run(int deviceId, Strategy strategy) {
       threads.y = kMaxBlockDim / blockDim;
       blocks.x = ceildiv(n0, threads.x);
       blocks.y = ceildiv(n1, threads.y);
-      smemSize = threads.x * threads.y * sizeof(float) * 2;
 
       try {
         double elapsedTimeMilliseconds = 0.0f;

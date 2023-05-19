@@ -32,6 +32,21 @@
             }
         },
         {
+            "label": "build bmm_dbuf",
+            "type": "shell",
+            "command": "nvcc --maxrregcount=64 -g -G -o bmm_dbuf bmm_dbuf.cu",
+            "problemMatcher": [
+                "$nvcc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/banded_matmul"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "label": "build bmm_wmma",
             "type": "shell",
             "command": "nvcc --gpu-architecture=compute_86 -g -G -o bmm_wmma bmm_wmma.cu",

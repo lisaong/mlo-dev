@@ -99,14 +99,15 @@ void run(int deviceId) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  dim3 threadsInit(kBlockDim, kBlockDim, 1);
-  dim3 blocksInit(n0 / threadsInit.x, n1 / threadsInit.y, 1);
-  initWith<<<blocksInit, threadsInit>>>(11.0f, T0.data, T0.rows(),
-                                        T0.columns());
-  initBandedWith<<<blocksInit, threadsInit>>>(22.0f, T1.data, T1.rows(),
-                                              T1.columns(), T1.band());
-  initWith<<<blocksInit, threadsInit>>>(33.0f, T2.data, T2.rows(),
-                                        T2.columns());
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
+
+  T0.randomInit(123);
+  CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
+  initBandedWith<<<blocks, threads>>>(static_cast<half>(22.0f), T1.data,
+                                      T1.rows(), T1.columns(), T1.band());
+  initWith<<<blocks, threads>>>(static_cast<half>(33.0f), T2.data, T2.rows(),
+                                T2.columns());
   CHECK(cudaDeviceSynchronize());
 
   // Verify
@@ -141,8 +142,10 @@ void run(int deviceId) {
     for (uint32_t blockDim = WARP_SIZE; blockDim <= kMaxBlockDim;
          blockDim += WARP_SIZE) {
 
-      dim3 threads(blockDim, blockDim, 1);
-      dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
+      threads.x = blockDim;
+      threads.y = kMaxBlockDim / blockDim;
+      blocks.x = ceildiv(n0, threads.x);
+      blocks.y = ceildiv(n1, threads.y);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
