@@ -56,7 +56,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   auto cta = cg::this_thread_block();
   float *t1_s = &t0_s[cta.size()];
 
-  // cooperatively copy each blockDim.x * blockDim.y tile of t0 and t1 to shared memory
+  // cooperatively copy each blockDim.x * blockDim.y tile of t0 and t1 to shared
+  // memory
   int numRows = blockDim.x;
   int columnOffset = cta.group_index().y * blockDim.y;
   int columnStride = blockDim.y;
@@ -69,36 +70,22 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
     cg::memcpy_async(cta, t1_s, &t1[rowOffset * n2 + columnOffset],
                      sizeof(float) * columnStride);
     cg::wait(cta);
-    // compute the row
-
-
   }
 
-  // // load the t0 and t1 sub-matrices into shared memory
-  // cg::memcpy_async(cta, t1_s, &t1[cta.group_index().x * n2],
-  //                  sizeof(float) * cta.size());
-  // cg::wait(cta);
-
-  // for (int i = cta.group_index().x * blockDim.x + threadIdx.x; i < n0;
-  //      i += blockDim.x * gridDim.x) {
-  //   for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-  //        j += blockDim.y * gridDim.y) {
-
-  //     // treat t2 as column major
-  //     for (int k = 0; k < n2 && (i + k) < n0; ++k) {
-  //       t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
-  //           t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j *
-  //           n2];
-  //     }
-  //   }
-  // }
-
+  // compute the tile
+  for (int k = 0; k < n2 && (i + k) < n0; ++k) {
+    t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
+        t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
+  }
   cta.sync();
 
-  // // write back to t0 global memory
-  // cg::memcpy_async(cta, &t0[cta.group_index().x * n1], t0_s,
-  //                  sizeof(float) * cta.size());
-  cg::wait(cta);
+  for (int b = 0; b < numRows; ++b) {
+    // write back to t0 global memory
+    int rowOffset = cta.group_index().x * blockDim.x + b;
+    cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset], t0_s,
+                     sizeof(float) * columnStride);
+    cg::wait(cta);
+  }
 }
 
 void run(int deviceId, Strategy strategy) {
