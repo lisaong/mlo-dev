@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -61,13 +61,16 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   int numRows = cta.dim_threads().x;
   int columnOffset = cta.group_index().y * cta.dim_threads().y;
   int columnStride = cta.dim_threads().y;
+  int smemOffset = cta.dim_threads().y;
 
   for (int b = 0; b < numRows; ++b) {
     // copy the row
     int rowOffset = cta.group_index().x * cta.dim_threads().x + b;
-    cg::memcpy_async(cta, t0_s, &t0[rowOffset * n1 + columnOffset],
+    cg::memcpy_async(cta, t0_s + smemOffset * b,
+                     &t0[rowOffset * n1 + columnOffset],
                      sizeof(float) * columnStride);
-    cg::memcpy_async(cta, t1_s, &t1[rowOffset * n2 + columnOffset],
+    cg::memcpy_async(cta, t1_s + smemOffset * b,
+                     &t1[rowOffset * n2 + columnOffset],
                      sizeof(float) * columnStride);
   }
   cg::wait(cta);
@@ -87,8 +90,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   for (int b = 0; b < numRows; ++b) {
     // write back to t0 global memory
     int rowOffset = cta.group_index().x * cta.dim_threads().x + b;
-    cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset], t0_s,
-                     sizeof(float) * columnStride);
+    cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset],
+                     t0_s + smemOffset * b, sizeof(float) * columnStride);
   }
   cg::wait(cta);
 }
