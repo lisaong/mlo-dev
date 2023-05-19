@@ -70,22 +70,19 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
     cg::memcpy_async(cta, t1_s, &t1[rowOffset * n2 + columnOffset],
                      sizeof(float) * columnStride);
     cg::wait(cta);
-  }
 
-  // compute the tile
-  int i = cta.group_index().x * cta.dim_threads().x + cta.thread_index().x;
-  int j = cta.group_index().y * cta.dim_threads().y + cta.thread_index().y;
-  for (int k = 0; (i + k) < n1; ++k) {
-    t0_s[cta.thread_index().x * cta.dim_threads().y + cta.thread_index().y] +=
-        t1_s[cta.thread_index().x * cta.dim_threads().y +
-             cta.thread_index().y] *
-        t2[(i + k) + j * n2];
-  }
-  cta.sync();
+    // compute the row
+    int i = cta.group_index().x * cta.dim_threads().x + cta.thread_index().x;
+    int j = cta.group_index().y * cta.dim_threads().y + cta.thread_index().y;
+    for (int k = 0; (i + k) < n1; ++k) {
+      t0_s[cta.thread_index().x * cta.dim_threads().y + cta.thread_index().y] +=
+          t1_s[cta.thread_index().x * cta.dim_threads().y +
+               cta.thread_index().y] *
+          t2[(i + k) + j * n2];
+    }
+    cta.sync();
 
-  for (int b = 0; b < numRows; ++b) {
     // write back to t0 global memory
-    int rowOffset = cta.group_index().x * blockDim.x + b;
     cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset], t0_s,
                      sizeof(float) * columnStride);
     cg::wait(cta);
