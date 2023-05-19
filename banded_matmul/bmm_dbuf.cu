@@ -73,6 +73,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   }
 
   // compute the tile
+  int i = cta.group_index().x * blockDim.x + threadIdx.x;
+  int j = cta.group_index().y * blockDim.y + threadIdx.y;
   for (int k = 0; k < n2 && (i + k) < n0; ++k) {
     t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
         t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
