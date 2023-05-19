@@ -31,8 +31,6 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
       t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + j];
 
-      cta.sync();
-
       // treat t2 as column major
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
         t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
@@ -93,7 +91,6 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
     cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset],
                      t0_s + smemOffset * b, sizeof(float) * columnStride);
   }
-  cg::wait(cta);
 }
 
 void run(int deviceId, Strategy strategy) {
