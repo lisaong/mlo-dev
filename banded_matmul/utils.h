@@ -73,8 +73,13 @@ public:
       return false;
     }
     for (uint64_t i = 0; i < _rows * _columns; ++i) {
-      if (std::fabs(data[i] - other.data[i]) >
-          std::numeric_limits<float>::epsilon()) {
+      if (std::fabs(data[i] - other.data[i]) > kEpsilon) {
+#if DEBUG
+        std::cout << "Mismatch at " << i << ": " << data[i] << " "
+                  << other.data[i]
+                  << ", absolute diff: " << std::fabs(data[i] - other.data[i])
+                  << std::endl;
+#endif
         return false;
       }
     }
@@ -83,9 +88,11 @@ public:
 
   bool operator!=(const Matrix &other) const { return !(*this == other); }
 
-  void print() const {
-    for (int i = 0; i < _rows; ++i) {
-      for (int j = 0; j < _columns; ++j) {
+  void print(int maxDim = 0) const {
+    int rows = maxDim == 0 ? _rows : maxDim;
+    int columns = maxDim == 0 ? _columns : maxDim;
+    for (int i = 0; i < rows; ++i) {
+      for (int j = 0; j < columns; ++j) {
         std::cout << data[i * _columns + j] << " ";
       }
       std::cout << std::endl;
@@ -170,20 +177,33 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const half *t1,
 }
 
 template <typename TIn, typename TOut>
+void fillMatrices(Matrix<TOut> &T0, BandedMatrix<TIn> &T1, Matrix<TIn> &T2,
+                  dim3 blocks, dim3 threads, int deviceId) {
+
+  initWith<<<blocks, threads>>>(11.0f, T0.data, T0.rows(), T0.columns());
+  CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
+  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
+                                      T1.band());
+  T2.randomInit(123);
+  CHECK(cudaDeviceSynchronize());
+  CHECK(cudaMemPrefetchAsync(T2.data, T2.size(), deviceId));
+}
+
+template <typename TIn, typename TOut>
 bool checkCorrectness(int n0, int n1, int n2, const Matrix<TOut> &T0,
                       const BandedMatrix<TIn> &T1, const Matrix<TIn> &T2) {
   Matrix<TOut> T0_CPU(T0.rows(), T0.columns());
 
   T0_CPU.data = reinterpret_cast<TOut *>(malloc(T0_CPU.size()));
-  T0_CPU.randomInit(123);
+  T0_CPU.init(11.0f);
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data);
 
 #if DEBUG
   std::cout << "T0_CPU: " << std::endl;
-  T0_CPU.print();
+  T0_CPU.print(10);
   std::cout << "T0: " << std::endl;
-  T0.print();
+  T0.print(10);
 #endif // DEBUG
 
   bool result = T0_CPU == T0;

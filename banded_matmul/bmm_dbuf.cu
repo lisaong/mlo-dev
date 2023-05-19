@@ -113,16 +113,10 @@ void run(int deviceId, Strategy strategy) {
   // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
   dim3 threads(16, 16, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
-  uint32_t smemSize;
-
-  T0.randomInit(123);
-  CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
-  initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
-                                      T1.band());
-  initWith<<<blocks, threads>>>(33.0f, T2.data, T2.rows(), T2.columns());
-  CHECK(cudaDeviceSynchronize());
+  fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
   // Verify
+  uint32_t smemSize;
   switch (strategy) {
   case Strategy::SynchronousCopy:
     // shared memory: [t0 sub-matrix, t1 sub-matrix]

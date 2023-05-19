@@ -24,7 +24,7 @@ echo "Running bmm_smem: T0 and T1 in shared memory, T2 column major"
 echo "=================="
 
 rm -rf bmm_dbuf
-nvcc ---std=c++17 -use_fast_math -o bmm_dbuf bmm_dbuf.cu
+nvcc -use_fast_math --std=c++20 -o bmm_dbuf bmm_dbuf.cu
 
 echo "Running bmm_dbuf: cooperative group synchronous copy"
 ./bmm_dbuf $GPU_ID 0
