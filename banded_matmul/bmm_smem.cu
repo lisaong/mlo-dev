@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
+// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -118,9 +119,11 @@ void run(int deviceId, Strategy strategy) {
   const int n2 = N; // n2: inner or shared dimension, i.e.
                     //     number of columns in T1 and number of rows in T2
 
-  Matrix<float> T0(n0, n1);             // output
-  BandedMatrix<float> T1(n0, kBandDim); // input
-  Matrix<float> T2(T1.columns(), n1);   // input
+  bool colMajor = strategy == Strategy::T0T1SharedMem_T2ColMajor;
+
+  Matrix<float> T0(n0, n1);                     // output
+  BandedMatrix<float> T1(n0, kBandDim);         // input
+  Matrix<float> T2(T1.columns(), n1, colMajor); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));

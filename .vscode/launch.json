@@ -17,7 +17,7 @@
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/banded_matmul/bmm_smem",
-            "args": "0", // gpu id
+            "args": "0 2", // gpu id, strategy_id
             "preLaunchTask": "build bmm_smem"
         },
         {
