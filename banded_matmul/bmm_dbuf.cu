@@ -101,9 +101,9 @@ void run(int deviceId, Strategy strategy) {
   const int n2 = N; // n2: inner or shared dimension, i.e.
                     //     number of columns in T1 and number of rows in T2
 
-  Matrix<float> T0(n0, n1);             // output
-  BandedMatrix<float> T1(n0, kBandDim); // input
-  Matrix<float> T2(T1.columns(), n1);   // input
+  Matrix<float> T0(n0, n1);                                 // output
+  BandedMatrix<float> T1(n0, kBandDim);                     // input
+  Matrix<float> T2(T1.columns(), n1, /*columnMajor*/ true); // input
 
   CHECK(cudaMallocManaged(&T0.data, T0.size()));
   CHECK(cudaMallocManaged(&T1.data, T1.size()));
