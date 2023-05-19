@@ -28,13 +28,13 @@
             "args": "0 1", // gpu id, strategy_id
             "preLaunchTask": "build bmm_dbuf"
         },
-        {
-            "name": "CUDA C++: Launch bmm_wmma",
-            "type": "cuda-gdb",
-            "request": "launch",
-            "program": "${workspaceFolder}/banded_matmul/bmm_wmma",
-            "args": "0", // gpu id
-            "preLaunchTask": "build bmm_wmma"
-        }
+        // {
+        //     "name": "CUDA C++: Launch bmm_wmma",
+        //     "type": "cuda-gdb",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/banded_matmul/bmm_wmma",
+        //     "args": "0", // gpu id
+        //     "preLaunchTask": "build bmm_wmma"
+        // }
     ]
 }

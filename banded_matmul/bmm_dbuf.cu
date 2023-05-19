@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
+#define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -45,52 +46,56 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   }
 }
 
-// __device__ void compute(int n0, int n1, int n2, int float *t0, const float
-// *t1,
-//                         const float *t2) {
-
-//   for (int i = 0; i < n0; ++i) {
-//     for (int j = 0; j < n1; ++j) {
-//       for (int k = 0; (i + k) < n2; ++k) {
-//         t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
-//       }
-//     }
-//   }
-// }
-
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
                                        const float *t1, const float *t2) {
 
-  auto cta = cg::this_thread_block();
-
   extern __shared__ float t0_s[];
+
+  // cf. MatrixMulAsyncCopySingleStage in
+  // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/3_CUDA_Features/globalToShmemAsyncCopy/globalToShmemAsyncCopy.cu
+  auto cta = cg::this_thread_block();
   float *t1_s = &t0_s[cta.size()];
 
-  // load the t0 and t1 sub-matrices into shared memory
-  cg::memcpy_async(cta, t0_s, &t0[cta.group_index().x * n1],
-                   sizeof(float) * cta.size());
-  cg::memcpy_async(cta, t1_s, &t1[cta.group_index().x * n2],
-                   sizeof(float) * cta.size());
-  cg::wait(cta);
+  // cooperatively copy each tile of t0 and t1 to shared memory
+  // copy blockDim.x rows, starting at the column offset
+  // for that group, to form a blockDim.x * blockDim.y tile
+  int numBlocks = blockDim.x;
+  int columnOffset = cta.group_index().y * blockDim.y;
+  int columnStride = blockDim.y;
 
-  for (int i = cta.group_index().x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
-    for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.y * gridDim.y) {
-
-      // treat t2 as column major
-      for (int k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
-            t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
-      }
-    }
+  for (int b = 0; b < numBlocks; ++b) {
+    int rowOffset = cta.group_index().x * blockDim.x + b;
+    cg::memcpy_async(cta, t0_s, &t0[rowOffset * n1 + columnOffset],
+                     sizeof(float) * columnStride);
+    cg::memcpy_async(cta, t1_s, &t1[rowOffset * n2 + columnOffset],
+                     sizeof(float) * columnStride);
+    cg::wait(cta);
   }
+
+  // // load the t0 and t1 sub-matrices into shared memory
+  // cg::memcpy_async(cta, t1_s, &t1[cta.group_index().x * n2],
+  //                  sizeof(float) * cta.size());
+  // cg::wait(cta);
+
+  // for (int i = cta.group_index().x * blockDim.x + threadIdx.x; i < n0;
+  //      i += blockDim.x * gridDim.x) {
+  //   for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
+  //        j += blockDim.y * gridDim.y) {
+
+  //     // treat t2 as column major
+  //     for (int k = 0; k < n2 && (i + k) < n0; ++k) {
+  //       t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
+  //           t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j *
+  //           n2];
+  //     }
+  //   }
+  // }
 
   cta.sync();
 
-  // write back to t0 global memory
-  cg::memcpy_async(cta, &t0[cta.group_index().x * n1], t0_s,
-                   sizeof(float) * cta.size());
+  // // write back to t0 global memory
+  // cg::memcpy_async(cta, &t0[cta.group_index().x * n1], t0_s,
+  //                  sizeof(float) * cta.size());
   cg::wait(cta);
 }
 
@@ -110,8 +115,7 @@ void run(int deviceId, Strategy strategy) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
-  dim3 threads(16, 16, 1);
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
