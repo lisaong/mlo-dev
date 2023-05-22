@@ -67,63 +67,52 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
                                        const float *t1, const float *t2,
                                        int tile) {
 
-  // extern __shared__ float t0_s[];
+  int i, j, k, jj;
 
-  // // cf. MatrixMulAsyncCopySingleStage in
-  // //
-  // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/3_CUDA_Features/globalToShmemAsyncCopy/globalToShmemAsyncCopy.cu
-  // auto cta = cg::this_thread_block();
-  // float *t1_s = &t0_s[cta.size()];
-  // int i, j, k;
+  auto cta = cg::this_thread_block();
 
-  // // cooperatively copy each blockDim.x * blockDim.y tile of t0 and t1 to
-  // shared
-  // // memory
-  // auto startX = blockIdx.x * blockDim.x + threadIdx.x;
-  // auto strideX = blockDim.x * gridDim.x;
-  // auto strideY = blockDim.y * gridDim.y;
+  // load the t0 and t1 sub-matrices into shared memory
+  extern __shared__ float t0_s[];
+  float *t1_s = &t0_s[cta.size() * tile];
 
-  // for (i = startX; i < n0; i += strideX) {
-  //   cg::memcpy_async(cta, t0_s, t0 + i * n1, sizeof(float) * strideY);
-  //   cg::memcpy_async(cta, t1_s, t1 + i * n2, sizeof(float) * strideY);
-  // }
-  // cg::wait();
+  const auto rowStart = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto rowStride = blockDim.x * gridDim.x;
+  const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
+  const auto colStride = blockDim.y * gridDim.y;
 
-  // int columnOffset = cta.group_index().y * cta.dim_threads().y;
-  // int columnStride = cta.dim_threads().y;
-  // int smemOffset = cta.dim_threads().y;
+  for (i = rowStart; i < n0; i += rowStride) {
+    for (j = colStart; j * tile < n1; j += colStride) {
 
-  // for (i = startX; i < n0; i += strideX) {
-  //   // copy a row
-  //   int rowOffset = cta.group_index().x * cta.dim_threads().x + b;
-  //   cg::memcpy_async(cta, t0_s + smemOffset * b,
-  //                    &t0[rowOffset * n1 + columnOffset],
-  //                    sizeof(float) * columnStride);
-  //   cg::memcpy_async(cta, t1_s + smemOffset * b,
-  //                    &t1[rowOffset * n2 + columnOffset],
-  //                    sizeof(float) * columnStride);
-  // }
-  // cg::wait(cta);
+      // for each thread, copy a column-tile of t0 and t1 into shared memory
+      const auto smemOffset =
+          threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
 
-  // // compute the row
-  // i = cta.group_index().x * cta.dim_threads().x + cta.thread_index().x;
-  // j = cta.group_index().y * cta.dim_threads().y + cta.thread_index().y;
-  // for (k = 0; (i + k) < n1; ++k) {
-  //   t0_s[cta.thread_index().x * cta.dim_threads().y + cta.thread_index().y]
-  //   +=
-  //       t1_s[cta.thread_index().x * cta.dim_threads().y +
-  //            cta.thread_index().y] *
-  //       t2[(i + k) + j * n2];
-  // }
+      cg::memcpy_async(cta, t0_s + smemOffset, &t0[i * n1 + j * tile],
+                       sizeof(float) * tile);
+      cg::memcpy_async(cta, t1_s + smemOffset, &t1[i * n2 + j * tile],
+                       sizeof(float) * tile);
+      cg::wait(cta);
+    }
+  }
 
-  // cg::sync(cta);
+  // compute
+  for (i = rowStart; i < n0; i += rowStride) {
+    for (j = colStart; j * tile < n1; j += colStride) {
+      for (jj = 0; jj < tile; ++jj) {
+        const auto smemIdx =
+            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
 
-  // for (int b = 0; b < numRows; ++b) {
-  //   // write back to t0 global memory
-  //   int rowOffset = cta.group_index().x * cta.dim_threads().x + b;
-  //   cg::memcpy_async(cta, &t0[rowOffset * n1 + columnOffset],
-  //                    t0_s + smemOffset * b, sizeof(float) * columnStride);
-  // }
+        // treat t2 as column major
+        for (k = 0; i + k < n1; ++k) {
+          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+        }
+        cta.sync();
+
+        // write back to global memory
+        t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
+      }
+    }
+  }
 }
 
 void run(int deviceId, Strategy strategy) {
