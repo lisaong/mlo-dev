@@ -2,9 +2,10 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cstdint>
+// #include <cuda/pipeline>
 #include <cuda_runtime.h>
 
-// #define DEBUG 1
+#define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -55,6 +56,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         for (k = 0; i + k < n1; ++k) {
           t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
         }
+        cta.sync();
 
         // write back to global memory
         t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
@@ -86,27 +88,24 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
       // for each thread, copy a column-tile of t0 and t1 into shared memory
       const auto smemOffset =
           threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
-
       cg::memcpy_async(cta, t0_s + smemOffset, &t0[i * n1 + j * tile],
                        sizeof(float) * tile);
       cg::memcpy_async(cta, t1_s + smemOffset, &t1[i * n2 + j * tile],
                        sizeof(float) * tile);
-      cg::wait(cta);
-    }
-  }
 
-  // compute
-  for (i = rowStart; i < n0; i += rowStride) {
-    for (j = colStart; j * tile < n1; j += colStride) {
+      // cg::wait(cta);
+      cta.sync();
+
+      // compute
       for (jj = 0; jj < tile; ++jj) {
         const auto smemIdx =
             threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
 
         // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+          // t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) *
+          // n2];
         }
-        cta.sync();
 
         // write back to global memory
         t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
@@ -137,7 +136,7 @@ void run(int deviceId, Strategy strategy) {
 
   // Verify
   // shared memory: [t0 sub-matrix, t1 sub-matrix]
-  blocks.y = ceildiv(n1, threads.y * kTile);
+  threads.y = ceildiv(n1, threads.y * kTile);
   uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2 * kTile;
 
   switch (strategy) {
@@ -171,9 +170,9 @@ void run(int deviceId, Strategy strategy) {
          blockDim += kBlockDimXStep) {
 
       threads.x = blockDim;
-      threads.y = kMaxBlockDim / blockDim;
+      threads.y = ceildiv(kMaxBlockDim, blockDim * kTile);
       blocks.x = ceildiv(n0, threads.x);
-      blocks.y = ceildiv(n1, threads.y * kTile);
+      blocks.y = ceildiv(n1, threads.y);
       smemSize = threads.x * threads.y * sizeof(float) * 2 * kTile;
 
       try {
