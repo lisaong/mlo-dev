@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -35,22 +35,30 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
       // for each thread, copy a column-tile of t0 and t1 into shared memory
       for (jj = 0; jj < tile; ++jj) {
-        const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y * tile + jj;
+        const auto smemIdx =
+            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
         t0_s[smemIdx] = t0[i * n1 + j * tile + jj];
         t1_s[smemIdx] = t1[i * n2 + j * tile + jj];
       }
-      cta.sync();
+    }
+  }
+  cta.sync();
 
-      // compute
+  // compute
+  for (i = rowStart; i < n0; i += rowStride) {
+    for (j = colStart; j * tile < n1; j += colStride) {
       for (jj = 0; jj < tile; ++jj) {
-        const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y * tile + jj;
+        const auto smemIdx =
+            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
+
+        // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) * n2 + j * tile + jj];
+          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
         }
 
+        // write back to global memory
         t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
       }
-      cta.sync();
     }
   }
 }
