@@ -5,7 +5,7 @@
 // #include <cuda/pipeline>
 #include <cuda_runtime.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -92,9 +92,6 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
   for (i = rowStart; i < n0; i += rowStride) {
     for (j = colStart; j * tile < n1; j += colStride) {
-
-      const auto smemOffset =
-          threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
 
       // compute
       for (jj = 0; jj < tile; ++jj) {
