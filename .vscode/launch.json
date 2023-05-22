@@ -25,7 +25,7 @@
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/banded_matmul/bmm_dbuf",
-            "args": "0 0", // gpu id, strategy_id
+            "args": "0 1", // gpu id, strategy_id
             "preLaunchTask": "build bmm_dbuf"
         },
         // {
