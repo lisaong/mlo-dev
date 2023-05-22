@@ -193,8 +193,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix<TOut> &T0,
   T0_CPU.data = reinterpret_cast<TOut *>(malloc(T0_CPU.size()));
   T0_CPU.randomInit(11);
 
-  // bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data,
-  // T2.columnMajor());
+  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data, T2.columnMajor());
 
 #if DEBUG
   std::cout << "T0_CPU: " << std::endl;

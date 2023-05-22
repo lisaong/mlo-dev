@@ -26,9 +26,9 @@ clang-format -i *.cu *.h
 rm -rf bmm_dbuf
 nvcc -use_fast_math --std=c++20 -o bmm_dbuf bmm_dbuf.cu
 
-# echo "Running bmm_dbuf: cooperative group synchronous copy"
-# ./bmm_dbuf $GPU_ID 0
-# echo "=================="
+echo "Running bmm_dbuf: cooperative group synchronous copy"
+./bmm_dbuf $GPU_ID 0
+echo "=================="
 
 echo "Running bmm_dbuf: cooperative group asynchronous copy"
 ./bmm_dbuf $GPU_ID 1
