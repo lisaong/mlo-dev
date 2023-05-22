@@ -24,22 +24,27 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[cta.size()];
 
-  for (i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
-    for (j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.y * gridDim.y) {
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
-      t1_s[threadIdx.x * blockDim.y + threadIdx.y] = t1[i * n2 + j];
+  auto startX = blockIdx.x * blockDim.x + threadIdx.x;
+  auto strideX = blockDim.x * gridDim.x;
+  auto startY = blockIdx.y * blockDim.y + threadIdx.y
+  auto strideY = blockDim.y * gridDim.y;
+  auto entry = threadIdx.x * blockDim.y + threadIdx.y;
+
+  for (i = startX; i < n0; i += strideX) {
+    for (j = startY; j < n1; j += strideY) {
+      t0_s[entry] = t0[i * n1 + j];
+      t1_s[entry] = t1[i * n2 + j];
+      cta.sync();
 
       // treat t2 as column major
       for (k = 0; k < n2 && (i + k) < n0; ++k) {
-        t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
-            t1_s[threadIdx.x * blockDim.y + threadIdx.y] * t2[(i + k) + j * n2];
+        t0_s[entry] +=
+            t1_s[entry] * t2[(i + k) + j * n2];
       }
       cta.sync();
 
       // write back to global memory
-      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+      t0[i * n1 + j] = t0_s[entry];
     }
   }
 }
