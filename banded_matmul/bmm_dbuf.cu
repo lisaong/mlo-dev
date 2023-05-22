@@ -5,7 +5,7 @@
 // #include <cuda/pipeline>
 #include <cuda_runtime.h>
 
-// #define DEBUG 1
+#define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -54,7 +54,8 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
         // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+          // t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) *
+          // n2];
         }
         cta.sync();
 
@@ -100,7 +101,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
         // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+          // t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) *
+          // n2];
         }
 
         // write back to global memory
