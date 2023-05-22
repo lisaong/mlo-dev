@@ -148,9 +148,8 @@ void run(int deviceId, Strategy strategy) {
 
   // Verify
   // shared memory: [t0 sub-matrix, t1 sub-matrix]
-  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2;
-  threads.y =
-      ceildiv(threads.y, kTile); // each threadIdx.y will process kTile elements
+  blocks.y = ceildiv(n1, threads.y * kTile);
+  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2 * kTile;
 
   switch (strategy) {
   case Strategy::SynchronousCopy:
