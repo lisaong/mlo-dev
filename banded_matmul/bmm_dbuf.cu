@@ -103,7 +103,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
         // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+          // t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) *
+          // n2];
         }
         cta.sync();
 
