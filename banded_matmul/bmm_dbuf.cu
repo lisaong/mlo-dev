@@ -84,40 +84,24 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
   for (i = rowStart; i < n0; i += rowStride) {
 
-    // for each thread, copy a row-tile of t0 and t1 into shared memory
-    cg::memcpy_async(cta, t0_s, &t0[i * n1], sizeof(float) * tile * n1);
-    cg::memcpy_async(cta, t1_s, &t1[i * n2], sizeof(float) * tile * n2);
+    // copy a row of t0 and t1 into shared memory
+    cg::memcpy_async(cta, t0_s, &t0[i * n1], sizeof(float) * n1);
+    cg::memcpy_async(cta, t1_s, &t1[i * n2], sizeof(float) * n2);
     cg::wait(cta);
 
     for (j = colStart; j * tile < n1; j += colStride) {
 
-      // for each thread, copy a row-tile of t0 and t1 into shared memory
-      // auto smemIdx = threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
-
-      // t0_s[smemIdx] = t0[i * n1 + j * tile + jj];
-      // cg::memcpy_async(cta, &t0_s[smemIdx], &t0[i * n1 + j * tile],
-      //                  sizeof(float) * tile);
-      // t1_s[smemIdx] = t1[i * n2 + j * tile + jj];
-      // cg::memcpy_async(cta, &t1_s[smemIdx], &t1[i * n2 + j * tile],
-      //                  sizeof(float) * tile);
-
       // compute
       for (jj = 0; jj < tile; ++jj) {
-        auto smemIdx =
-            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
-
-        // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
+          t0_s[j * tile + jj] += t1_s[k] * t2[(i + k) + (j * tile + jj) * n2];
         }
+        cta.sync();
+
+        // write back to global memory
+        t0[i * n1 + j * tile + jj] = t0_s[j * tile + jj];
       }
     }
-
-    cta.sync();
-
-    // write back to global memory
-    cg::memcpy_async(cta, &t0[i * n1], t0_s, sizeof(float) * tile * n1);
-    cg::wait(cta);
   }
 }
 
