@@ -94,15 +94,17 @@ public:
     if (_rows != other._rows || _columns != other._columns) {
       return false;
     }
-    for (uint64_t i = 0; i < _rows * _columns; ++i) {
-      if (std::fabs(data[i] - other.data[i]) > kEpsilon) {
+    for (uint64_t i = 0; i < _rows; ++i) {
+      for (uint64_t j = 0; j < _columns; ++j) {
+        auto index = i * _columns * j;
+        if (std::fabs(data[index] - other.data[index]) > kEpsilon) {
 #if DEBUG
-        std::cout << "Mismatch at " << i << ": " << data[i] << " "
-                  << other.data[i]
-                  << ", absolute diff: " << std::fabs(data[i] - other.data[i])
-                  << std::endl;
+          std::cout << "Mismatch at [" << i << ", " << j << "]: " << data[index]
+                    << " " << other.data[index] << ", absolute diff: "
+                    << std::fabs(data[index] - other.data[index]) << std::endl;
 #endif
-        return false;
+          return false;
+        }
       }
     }
     return true;
@@ -191,7 +193,8 @@ template <typename TIn, typename TOut>
 void fillMatrices(Matrix<TOut> &T0, BandedMatrix<TIn> &T1, Matrix<TIn> &T2,
                   dim3 blocks, dim3 threads, int deviceId) {
 
-  T0.randomInit(11);
+  // T0.randomInit(11);
+  T0.debugInit();
   CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
@@ -206,7 +209,8 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix<TOut> &T0,
   Matrix<TOut> T0_CPU(T0.rows(), T0.columns());
 
   T0_CPU.data = reinterpret_cast<TOut *>(malloc(T0_CPU.size()));
-  T0_CPU.randomInit(11);
+  // T0_CPU.randomInit(11);
+  T0_CPU.debugInit();
 
   bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data, T2.columnMajor());
 
