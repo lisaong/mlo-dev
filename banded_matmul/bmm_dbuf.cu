@@ -116,6 +116,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
       }
     }
   }
+
+  cta.sync();
 }
 
 void run(int deviceId, Strategy strategy) {
