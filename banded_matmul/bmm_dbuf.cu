@@ -81,38 +81,43 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   const auto rowStride = blockDim.x * gridDim.x;
   const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
   const auto colStride = blockDim.y * gridDim.y;
+  const auto smemOffset = threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
 
   for (i = rowStart; i < n0; i += rowStride) {
+
     for (j = colStart; j * tile < n1; j += colStride) {
 
-      // for each thread, copy a row-tile of t0 and t1 into shared memory
-      auto smemIdx = threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
+      // copy a row tile of t0 and t1 into shared memory
+      const auto jOffset = j * tile;
 
-      // t0_s[smemIdx] = t0[i * n1 + j * tile + jj];
-      cg::memcpy_async(cta, &t0_s[smemIdx], &t0[i * n1 + j * tile],
+      cg::memcpy_async(cta, &t0_s[smemOffset], &t0[i * n1 + jOffset],
                        sizeof(float) * tile);
-      // t1_s[smemIdx] = t1[i * n2 + j * tile + jj];
-      cg::memcpy_async(cta, &t1_s[smemIdx], &t1[i * n2 + j * tile],
+      cg::memcpy_async(cta, &t1_s[smemOffset], &t1[i * n2 + jOffset],
                        sizeof(float) * tile);
+    }
+  }
 
-      cg::wait(cta);
+  cg::wait(cta);
 
-      // compute
+  // compute
+  for (i = rowStart; i < n0; i += rowStride) {
+    for (j = colStart; j * tile < n1; j += colStride) {
       for (jj = 0; jj < tile; ++jj) {
-        smemIdx = threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
 
         // treat t2 as column major
         for (k = 0; i + k < n1; ++k) {
-          // t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) *
-          // n2];
+          t0_s[smemOffset + jj] +=
+              t1_s[smemOffset + jj] * t2[(i + k) + (j * tile + jj) * n2];
         }
         cta.sync();
 
         // write back to global memory
-        t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
+        t0[i * n1 + j * tile + jj] = t0_s[smemOffset + jj];
       }
     }
   }
+
+  cta.sync();
 }
 
 void run(int deviceId, Strategy strategy) {
