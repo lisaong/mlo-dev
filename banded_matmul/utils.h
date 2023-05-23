@@ -75,6 +75,21 @@ public:
     }
   }
 
+  void debugInit() {
+    // generates a fill pattern that can be used for debugging index access
+    // the pattern is a floating point number like this: <row_index>.<col_index>
+    const int colDigits = std::to_string(_columns).length();
+    for (uint64_t i = 0; i < _rows; ++i) {
+      for (uint64_t j = 0; j < _columns; ++j) {
+        T fillVal = static_cast<T>(i + j / std::pow(10, colDigits));
+        if (_columnMajor)
+          data[j * _rows + i] = fillVal;
+        else
+          data[i * _columns + j] = fillVal;
+      }
+    }
+  }
+
   bool operator==(const Matrix &other) const {
     if (_rows != other._rows || _columns != other._columns) {
       return false;
@@ -193,8 +208,7 @@ bool checkCorrectness(int n0, int n1, int n2, const Matrix<TOut> &T0,
   T0_CPU.data = reinterpret_cast<TOut *>(malloc(T0_CPU.size()));
   T0_CPU.randomInit(11);
 
-  // bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data,
-  // T2.columnMajor());
+  bandedMatMul_CPU(n0, n1, n2, T0_CPU.data, T1.data, T2.data, T2.columnMajor());
 
 #if DEBUG
   std::cout << "T0_CPU: " << std::endl;
