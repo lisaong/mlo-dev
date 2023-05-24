@@ -15,109 +15,98 @@ namespace cg = cooperative_groups;
 enum class Strategy { SynchronousCopy = 0, AsynchronousCopy = 1 };
 
 __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
-                                      const float *t1, const float *t2,
-                                      int tile) {
+                                      const float *t1, const float *t2) {
 
-  int i, j, k, jj;
+  int i, j, k;
 
   auto cta = cg::this_thread_block();
 
   // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
-  float *t1_s = &t0_s[cta.size() * tile];
+  float *t1_s = &t0_s[cta.size()];
 
   const auto rowStart = blockIdx.x * blockDim.x + threadIdx.x;
   const auto rowStride = blockDim.x * gridDim.x;
   const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
   const auto colStride = blockDim.y * gridDim.y;
 
+  // copy a block of t0 and t1 into shared memory
   for (i = rowStart; i < n0; i += rowStride) {
-    for (j = colStart; j * tile < n1; j += colStride) {
-
-      // for each thread, copy a row-tile of t0 and t1 into shared memory
-      for (jj = 0; jj < tile; ++jj) {
-        const auto smemIdx =
-            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
-        t0_s[smemIdx] = t0[i * n1 + j * tile + jj];
-        t1_s[smemIdx] = t1[i * n2 + j * tile + jj];
-      }
+    for (j = colStart; j < n1; j += colStride) {
+      const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y;
+      t0_s[smemIdx] = t0[i * n1 + j];
+      t1_s[smemIdx] = t1[i * n2 + j];
     }
-  }
-  cta.sync();
+    cta.sync();
 
-  // compute
-  for (i = rowStart; i < n0; i += rowStride) {
-    for (j = colStart; j * tile < n1; j += colStride) {
-      for (jj = 0; jj < tile; ++jj) {
-        const auto smemIdx =
-            threadIdx.x * blockDim.y * tile + threadIdx.y * tile + jj;
+    for (j = colStart; j < n1; j += colStride) {
+      const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y;
 
-        // treat t2 as column major
-        for (k = 0; i + k < n1; ++k) {
-          t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + (j * tile + jj) * n2];
-        }
-        cta.sync();
-
-        // write back to global memory
-        t0[i * n1 + j * tile + jj] = t0_s[smemIdx];
+      // treat t2 as column major
+      for (k = 0; i + k < n1; ++k) {
+        t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + j * n2];
       }
+      cta.sync();
+
+      // write back to global memory
+      t0[i * n1 + j] = t0_s[smemIdx];
     }
   }
 }
 
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
-                                       const float *t1, const float *t2,
-                                       int tile) {
+                                       const float *t1, const float *t2) {
 
-  int i, j, k, jj;
+  // int i, j, k, jj;
 
-  auto cta = cg::this_thread_block();
+  // auto cta = cg::this_thread_block();
 
-  // load the t0 and t1 sub-matrices into shared memory
-  extern __shared__ float t0_s[];
-  float *t1_s = &t0_s[cta.size() * tile];
+  // // load the t0 and t1 sub-matrices into shared memory
+  // extern __shared__ float t0_s[];
+  // float *t1_s = &t0_s[cta.size() * tile];
 
-  const auto rowStart = blockIdx.x * blockDim.x + threadIdx.x;
-  const auto rowStride = blockDim.x * gridDim.x;
-  const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
-  const auto colStride = blockDim.y * gridDim.y;
-  const auto smemOffset = threadIdx.x * blockDim.y * tile + threadIdx.y * tile;
+  // const auto rowStart = blockIdx.x * blockDim.x + threadIdx.x;
+  // const auto rowStride = blockDim.x * gridDim.x;
+  // const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
+  // const auto colStride = blockDim.y * gridDim.y;
+  // const auto smemOffset = threadIdx.x * blockDim.y * tile + threadIdx.y *
+  // tile;
 
-  for (i = rowStart; i < n0; i += rowStride) {
+  // for (i = rowStart; i < n0; i += rowStride) {
 
-    for (j = colStart; j * tile < n1; j += colStride) {
+  //   for (j = colStart; j * tile < n1; j += colStride) {
 
-      // copy a row tile of t0 and t1 into shared memory
-      const auto jOffset = j * tile;
+  //     // copy a row tile of t0 and t1 into shared memory
+  //     const auto jOffset = j * tile;
 
-      cg::memcpy_async(cta, &t0_s[smemOffset], &t0[i * n1 + jOffset],
-                       sizeof(float) * tile);
-      cg::memcpy_async(cta, &t1_s[smemOffset], &t1[i * n2 + jOffset],
-                       sizeof(float) * tile);
-    }
-  }
+  //     cg::memcpy_async(cta, &t0_s[smemOffset], &t0[i * n1 + jOffset],
+  //                      sizeof(float) * tile);
+  //     cg::memcpy_async(cta, &t1_s[smemOffset], &t1[i * n2 + jOffset],
+  //                      sizeof(float) * tile);
+  //   }
+  // }
 
-  cg::wait(cta);
+  // cg::wait(cta);
 
-  // compute
-  for (i = rowStart; i < n0; i += rowStride) {
-    for (j = colStart; j * tile < n1; j += colStride) {
-      for (jj = 0; jj < tile; ++jj) {
+  // // compute
+  // for (i = rowStart; i < n0; i += rowStride) {
+  //   for (j = colStart; j * tile < n1; j += colStride) {
+  //     for (jj = 0; jj < tile; ++jj) {
 
-        // treat t2 as column major
-        for (k = 0; i + k < n1; ++k) {
-          t0_s[smemOffset + jj] +=
-              t1_s[smemOffset + jj] * t2[(i + k) + (j * tile + jj) * n2];
-        }
-        cta.sync();
+  //       // treat t2 as column major
+  //       for (k = 0; i + k < n1; ++k) {
+  //         t0_s[smemOffset + jj] +=
+  //             t1_s[smemOffset + jj] * t2[(i + k) + (j * tile + jj) * n2];
+  //       }
+  //       cta.sync();
 
-        // write back to global memory
-        t0[i * n1 + j * tile + jj] = t0_s[smemOffset + jj];
-      }
-    }
-  }
+  //       // write back to global memory
+  //       t0[i * n1 + j * tile + jj] = t0_s[smemOffset + jj];
+  //     }
+  //   }
+  // }
 
-  cta.sync();
+  // cta.sync();
 }
 
 void run(int deviceId, Strategy strategy) {
@@ -137,22 +126,21 @@ void run(int deviceId, Strategy strategy) {
 
   // Initialize
   dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
-  dim3 blocks(ceildiv(n0, threads.x), ceildiv(n1, threads.y), 1);
+  dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
   // Verify
   // shared memory: [t0 sub-matrix, t1 sub-matrix]
-  threads.y = ceildiv(n1, threads.y * kTile);
-  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2 * kTile;
+  uint32_t smemSize = threads.x * threads.y * sizeof(float) * 2;
 
   switch (strategy) {
   case Strategy::SynchronousCopy:
-    bandedMatMul_syncCopy<<<blocks, threads, smemSize>>>(
-        n0, n1, n2, T0.data, T1.data, T2.data, kTile);
+    bandedMatMul_syncCopy<<<blocks, threads, smemSize>>>(n0, n1, n2, T0.data,
+                                                         T1.data, T2.data);
     break;
   case Strategy::AsynchronousCopy:
-    bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(
-        n0, n1, n2, T0.data, T1.data, T2.data, kTile);
+    bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(n0, n1, n2, T0.data,
+                                                          T1.data, T2.data);
     break;
   default:
     throw std::runtime_error("Unknown strategy");
@@ -176,10 +164,10 @@ void run(int deviceId, Strategy strategy) {
          blockDim += kBlockDimXStep) {
 
       threads.x = blockDim;
-      threads.y = ceildiv(kMaxBlockDim, blockDim * kTile);
+      threads.y = ceildiv(kMaxBlockDim, blockDim);
       blocks.x = ceildiv(n0, threads.x);
       blocks.y = ceildiv(n1, threads.y);
-      smemSize = threads.x * threads.y * sizeof(float) * 2 * kTile;
+      smemSize = threads.x * threads.y * sizeof(float) * 2;
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
@@ -193,11 +181,11 @@ void run(int deviceId, Strategy strategy) {
           switch (strategy) {
           case Strategy::SynchronousCopy:
             bandedMatMul_syncCopy<<<blocks, threads, smemSize>>>(
-                n0, n1, n2, T0.data, T1.data, T2.data, kTile);
+                n0, n1, n2, T0.data, T1.data, T2.data);
             break;
           case Strategy::AsynchronousCopy:
             bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(
-                n0, n1, n2, T0.data, T1.data, T2.data, kTile);
+                n0, n1, n2, T0.data, T1.data, T2.data);
             break;
           default:
             break;
