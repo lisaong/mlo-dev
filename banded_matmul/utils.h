@@ -96,7 +96,7 @@ public:
     }
     for (uint64_t i = 0; i < _rows; ++i) {
       for (uint64_t j = 0; j < _columns; ++j) {
-        auto index = i * _columns * j;
+        auto index = i * _columns + j;
         if (std::fabs(data[index] - other.data[index]) > kEpsilon) {
 #if DEBUG
           std::cout << "Mismatch at [" << i << ", " << j << "]: " << data[index]
