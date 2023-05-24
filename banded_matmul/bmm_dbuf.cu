@@ -21,7 +21,6 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   auto cta = cg::this_thread_block();
 
-  // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[cta.size()];
 
@@ -31,6 +30,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   const auto colStride = blockDim.y * gridDim.y;
 
   // copy a block of t0 and t1 into shared memory
+  // TODO: copy rows instead of blocks
   for (i = rowStart; i < n0; i += rowStride) {
     for (j = colStart; j < n1; j += colStride) {
       const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y;
@@ -61,34 +61,30 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
   auto cta = cg::this_thread_block();
 
-  // load the t0 and t1 sub-matrices into shared memory
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[cta.size()];
 
-  const auto rowStart = blockIdx.x * blockDim.x + threadIdx.x;
-  const auto rowStride = blockDim.x * gridDim.x;
-  const auto colStart = blockIdx.y * blockDim.y + threadIdx.y;
-  const auto colStride = blockDim.y * gridDim.y;
+  const auto rowStart = blockIdx.x * blockDim.x;
+  const auto rowStride = gridDim.x;
 
-  // copy a row of t0 and t1 into shared memory
-  cg::memcpy_async(cta, t0_s, &t0[rowStart], sizeof(float) * n1);
-  cg::memcpy_async(cta, t1_s, &t1[rowStart], sizeof(float) * n1);
-  cg::wait(cta);
-
-  // compute
   for (i = rowStart; i < n0; i += rowStride) {
-    for (j = colStart; j < n1; j += colStride) {
-      const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y;
+    // copy a row of t0 and t1 into shared memory
+    cg::memcpy_async(cta, t0_s, &t0[i * n1], sizeof(float) * cta.size());
+    cg::memcpy_async(cta, t1_s, &t1[i * n1], sizeof(float) * cta.size());
 
-      // treat t2 as column major
-      for (k = 0; i + k < n1; ++k) {
-        t0_s[smemIdx] += t1_s[smemIdx] * t2[(i + k) + j * n2];
-      }
-      cta.sync();
+    cg::wait(cta);
 
-      // write back to global memory
-      t0[i * n1 + j] = t0_s[smemIdx];
+    // compute the row, assumes the number of threads == row width
+    j = threadIdx.x * blockDim.y + threadIdx.y;
+
+    // treat t2 as column major
+    for (k = 0; i + k < n1; ++k) {
+      t0_s[j] += t1_s[j] * t2[(i + k) + j * n2];
     }
+    cta.sync();
+
+    // write back to global memory
+    t0[i * n1 + j] = t0_s[j];
   }
 }
 
