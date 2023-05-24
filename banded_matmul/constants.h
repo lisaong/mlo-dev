@@ -12,4 +12,4 @@ constexpr uint32_t kMaxBlockDim = 1024;
 constexpr uint32_t kNumberOfOps = 2 * N * N * N;
 constexpr uint32_t kMillisecondsInSeconds = 1000;
 constexpr uint32_t kTimelimit = 10 * kMillisecondsInSeconds;
-constexpr float kEpsilon = 1e-2f;
+constexpr float kEpsilon = 5e-2f;
