@@ -30,7 +30,6 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   const auto colStride = blockDim.y * gridDim.y;
 
   // copy a block of t0 and t1 into shared memory
-  // TODO: copy rows instead of blocks
   for (i = rowStart; i < n0; i += rowStride) {
     for (j = colStart; j < n1; j += colStride) {
       const auto smemIdx = threadIdx.x * blockDim.y + threadIdx.y;
@@ -64,15 +63,16 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   extern __shared__ float t0_s[];
   float *t1_s = &t0_s[cta.size()];
 
-  const auto rowStart = blockIdx.x * blockDim.x;
-  const auto rowStride = gridDim.x;
-
-  for (i = rowStart; i < n0; i += rowStride) {
+  // each block will copy n0 / gridDim.x rows
+  const auto numRows = n0 / gridDim.x;
+  const auto rowOffset = blockIdx.x * numRows;
+  for (int r = 0; r < numRows; ++r) {
     // copy a row of t0 and t1 into shared memory
+    i = rowOffset + r;
     cg::memcpy_async(cta, t0_s, &t0[i * n1], sizeof(float) * cta.size());
     cg::memcpy_async(cta, t1_s, &t1[i * n1], sizeof(float) * cta.size());
 
-    cg::wait(cta);
+    cg::wait(cta); // wait for copies to complete
 
     // compute the row, assumes the number of threads == row width
     j = threadIdx.x * blockDim.y + threadIdx.y;
@@ -81,10 +81,11 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
     for (k = 0; i + k < n1; ++k) {
       t0_s[j] += t1_s[j] * t2[(i + k) + j * n2];
     }
-    cta.sync();
+    cta.sync(); // wait for all threads to compute
 
     // write back to global memory
     t0[i * n1 + j] = t0_s[j];
+    cta.sync(); // wait for all threads to consume
   }
 }
 
