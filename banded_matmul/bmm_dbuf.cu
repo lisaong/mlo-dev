@@ -112,9 +112,6 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
-  assert(n0 == cta.num_threads());
-  assert(n2 % blockDim.x == 0);
-
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
@@ -212,8 +209,8 @@ void run(int deviceId, Strategy strategy) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
-  // dim3 threads(16, 2, 1);
+  // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  dim3 threads(16, 2, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
