@@ -18,72 +18,87 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
                                       const float *t1, const float *t2,
                                       int tileK) {
 
-  int i, j, k;
+  int i, j, k, t;
 
   auto cta = cg::this_thread_block();
 
   extern __shared__ float t0_s[];                   // blockDim.x * blockDim.y
   float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
-  float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // blockDim.y * tileK
+  float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
-  // T1: 64xk, T2: kx16
-  // 64 rows of T1, each thread copies k columns of T1
-  // 16 columns of T2, each thread copies k rows of T2
+  assert(n0 == cta.num_threads());
+  assert(n2 % blockDim.x == 0);
 
-  // for a blockDim.x x 1024 sub-matrix of T1 and a 1024 x blockDim.y submatrix
-  // of T2
-  //   copy a blockDim.x x k_tile of T1 into shared memory
-  //   copy a k_tile x blockDim.y of T2 into shared memory (row-shifted by i)
-  //   compute matmul and write to T0's shared memory
+  // T0: prepare the result tile
+  // Each block copies blockDim.x x blockDim.y entries, one entry per thread
+  i = blockIdx.x * blockDim.x + threadIdx.x;
+  j = blockIdx.y * blockDim.y + threadIdx.y;
+  auto idx = i * n1 + j;
+  auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
+  t0_s[sIdx] = t0[idx];
 
-  const auto t1_rowStart = blockIdx.x * blockDim.x + threadIdx.x;
-  const auto t1_rowStride = blockDim.x * gridDim.x;
-  const auto t2_colStart = blockIdx.y * blockDim.y + threadIdx.y;
-  const auto t2_colStride = blockDim.y * gridDim.y;
+  // Due to shared memory limitations, we cannot fit complete rows or columns of
+  // T1 and T2 per block:
+  //   T1: only blockDim.x by tileK shared memory
+  //   T2: only tileK by blockDim.y shared memory
+  // Perform the copying and multiplication per tile, then accumulate
+  // the results in the blockDim.x by blockDim.y T0 tile
+  const auto numTiles = n1 / tileK;
+  const auto colsPerThread = tileK / blockDim.y;
+  const auto rowsPerThread = tileK / blockDim.x;
 
-  for (i = t1_rowStart; i < n0; i += t1_rowStride) {
-    for (j = t2_colStart; j < n1; j += t2_colStride) {
-      auto smemIndex = threadIdx.x * blockDim.y + threadIdx.y;
-      auto index = i * n1 + j;
-      t0_s[smemIndex] = t0[index];
+  for (t = 0; t < numTiles; ++t) {
+    // T1:
+    // Each block copies a blockDim.x by tileK tile
+    // Each thread copies a 1 by tileK / blockDim.y sub-tile
+    const auto t1GlobalX = blockIdx.x * blockDim.x;
+    const auto t1ThreadX = threadIdx.x;
+    const auto t1GlobalY = t * tileK;
+    const auto shiftOffset = t1GlobalX + t1ThreadX;
+
+    for (k = 0; k < colsPerThread; ++k) {
+      const auto t1ThreadY = threadIdx.y * colsPerThread + k;
+      idx = (t1GlobalX + t1ThreadX) * n1 + t1GlobalY + t1ThreadY;
+      sIdx = t1ThreadX * tileK + t1ThreadY;
+      t1_s[sIdx] = t1[idx];
     }
-  }
-  cta.sync();
 
-  for (i = t1_rowStart; i < n0; i += t1_rowStride) {
-    // copy a blockDim.x x k_tile of T1 into shared memory
+    // T2:
+    // Each block copies a tileK by blockDim.y tile
+    // Each thread copies a tileK / blockDim.x by 1 sub-tile
+    // The column major layout will be maintained
+    // T2 values need to be shifted down by the row index of T1
+    const auto t2GlobalY = blockIdx.y * blockDim.y;
+    const auto t2GlobalX = t * tileK;
+    const auto t2ThreadY = threadIdx.y;
+
+    for (k = 0; k < rowsPerThread; ++k) {
+      const auto t2ThreadX = threadIdx.x * rowsPerThread + k;
+
+      if (shiftOffset + t2GlobalX + t2ThreadX < n0) {
+        idx = (shiftOffset + t2GlobalX + t2ThreadX) +
+              (t2GlobalY + t2ThreadY) * n1;
+        sIdx = t2ThreadX + t2ThreadY * tileK;
+        t2_s[sIdx] = t2[idx];
+      }
+    }
+
+    cta.sync();
+
+    // Each block multiplies blockDim.x by tileK with tileK by blockDim.y and
+    // accumulates the results into T0 Each thread multiplies 1 x tileK with
+    // tileX by 1 and accumulates the results into T0
+    sIdx = threadIdx.x * blockDim.y + threadIdx.y;
     for (k = 0; k < tileK; ++k) {
-      auto smemIndex = threadIdx.x * tileK + k;
-      auto index = i * n0 + blockIdx.y * tileK + k;
-      t1_s[smemIndex] = t1[index];
-    }
-
-    for (j = t2_colStart; j < n1; j += t2_colStride) {
-      // copy a k_tile x blockDim.y of T2 into shared memory (row-shifted by i)
-      for (k = 0; k < tileK && (i + threadIdx.y * tileK + k) < n0; ++k) {
-        auto smemIndex = threadIdx.y * tileK + k;
-        auto index = (i + threadIdx.y * tileK + k) * n1 + j;
-
-        t2_s[smemIndex] = t2[index];
-      }
+      t0_s[sIdx] +=
+          t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
     }
   }
+
   cta.sync();
 
-  // compute matmul and write to T0's shared memory
-  for (i = t1_rowStart; i < n0; i += t1_rowStride) {
-    for (j = t2_colStart; j < n1; j += t2_colStride) {
-      for (k = 0; k < tileK; ++k) {
-        t0_s[threadIdx.x * blockDim.y + threadIdx.y] +=
-            t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
-      }
-
-      cta.sync();
-
-      // write to global memory
-      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
-    }
-  }
+  idx = i * n1 + j;
+  t0[idx] = t0_s[sIdx];
 }
 
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
@@ -148,7 +163,7 @@ void run(int deviceId, Strategy strategy) {
   // hold tiles of T0, T1, and T2 in shared memory
   uint32_t smemSize = threads.x * threads.y * sizeof(float) +
                       threads.x * tileK * sizeof(float) +
-                      threads.y * tileK * sizeof(float);
+                      tileK * threads.y * sizeof(float);
 
   // Verify
   switch (strategy) {
@@ -187,8 +202,8 @@ void run(int deviceId, Strategy strategy) {
       blocks.y = ceildiv(n1, threads.y);
       tileK = n1 / threads.y; // TODO: check
       smemSize = threads.x * threads.y * sizeof(float) +
-                 threads.x * tileK * sizeof(float) +
-                 threads.y * tileK * sizeof(float);
+                 threads.x * n2 * sizeof(float) +
+                 n2 * threads.y * sizeof(float);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
