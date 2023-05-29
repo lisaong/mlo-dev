@@ -120,7 +120,6 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
       // T0: prepare the result tile
       // Each block copies blockDim.x x blockDim.y entries, one entry per thread
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
-      cta.sync();
 
       // Due to shared memory limitations, we cannot fit complete rows or
       // columns of T1 and T2 per block:
@@ -137,9 +136,8 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
         // T1: Each block fills the (blockDim.x, tileK) shared memory
         // Each thread fills a (1, colsPerThread) row
         const auto t1ThreadY = threadIdx.y * colsPerThread;
-        auto row = i;
         auto col = tileOffset + t1ThreadY;
-        auto idx = row * n1 + col;
+        auto idx = i * n1 + col;
         auto sIdx = threadIdx.x * tileK + t1ThreadY;
 
         cg::memcpy_async(cta, t1_s + sIdx, t1 + idx,
