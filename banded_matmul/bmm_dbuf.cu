@@ -179,8 +179,13 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
           t0_s[sIdx] +=
               t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
 #else
-          t0_s[sIdx] +=
-              t1_s[threadIdx.x * tileK + k] * t2[(i + t * tileK + k) * n1 + j];
+          // reverse map T2's local row coordinate to global row coordinate
+          // local: k, global: t * tileK + k
+          const auto row = tileOffset + k;
+          if (i + row < n0) {
+            t0_s[sIdx] +=
+                t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
+          }
 #endif // T2_SMEM
         }
         cta.sync();

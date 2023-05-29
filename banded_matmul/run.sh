@@ -28,13 +28,13 @@ rm -rf bmm_dbuf
 # cuda-gdb bmm_dbuf
 
 nvcc -use_fast_math --std=c++20 -o bmm_dbuf bmm_dbuf.cu
-echo "Running bmm_dbuf: cooperative group synchronous copy"
-./bmm_dbuf $GPU_ID 0
-echo "=================="
-
-# echo "Running bmm_dbuf: cooperative group asynchronous copy"
-# ./bmm_dbuf $GPU_ID 1
+# echo "Running bmm_dbuf: cooperative group synchronous copy"
+# ./bmm_dbuf $GPU_ID 0
 # echo "=================="
+
+echo "Running bmm_dbuf: cooperative group asynchronous copy"
+./bmm_dbuf $GPU_ID 1
+echo "=================="
 
 # rm -rf bmm_wmma
 # nvcc --gpu-architecture=compute_86 --use_fast_math --std=c++17 -o bmm_wmma bmm_wmma.cu
