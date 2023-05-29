@@ -5,6 +5,7 @@
 // #include <cuda/pipeline>
 #include <cuda_runtime.h>
 
+#define T2_SMEM 1
 #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
@@ -35,49 +36,41 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   // Due to shared memory limitations, we cannot fit complete rows or columns of
   // T1 and T2 per block:
-  //   T1: only blockDim.x by tileK in shared memory
-  //   T2: only tileK by blockDim.y in shared memory
+  //   T1: only (blockDim.x, tileK) shared memory available
+  //   T2: only (tileK, blockDim.y) shared memory available
   // Perform the copying and multiplication per tile, then accumulate
   // the results in a blockDim.x by blockDim.y T0 tile
   const auto numTilesPerBlock = n1 / tileK;
   const auto colsPerThread = tileK / blockDim.y;
   const auto rowsPerThread = tileK / blockDim.x;
 
-  // Loop through each tile of T1 and T2
   for (int t = 0; t < numTilesPerBlock; ++t) {
-    // T1: Each block copies a blockDim.x by tileK tile per iteration
-    // Each thread copies a 1 by (tileK / blockDim.y) row, sliding column-wise
-    // by colsPerThread
-    const auto t1GlobalX = blockIdx.x * blockDim.x;
-    const auto t1GlobalY = t * tileK;
-    const auto t1ThreadX = threadIdx.x;
+    const auto tileOffset = t * tileK;
 
+    // T1: Each block fills the (blockDim.x, tileK) shared memory
+    // Each thread fills a (1, colsPerThread) row
     for (int k = 0; k < colsPerThread; ++k) {
       const auto t1ThreadY = threadIdx.y * colsPerThread + k;
-      const auto row = t1GlobalX + t1ThreadX;
-      const auto col = t1GlobalY + t1ThreadY;
+      const auto row = i;
+      const auto col = tileOffset + t1ThreadY;
       const auto idx = row * n1 + col;
-      const auto sIdx = t1ThreadX * tileK + t1ThreadY;
+      const auto sIdx = threadIdx.x * tileK + t1ThreadY;
       t1_s[sIdx] = t1[idx];
     }
 
 #if T2_SMEM
-    // T2: Each block copies a tileK by blockDim.y tile;
-    // Each thread copies a tileK / blockDim.x by 1 column
-    // T2 values need to be shifted down by the row index of T1
-    const auto t2GlobalY = blockIdx.y * blockDim.y;
-    const auto t2GlobalX = t * tileK;
+    // T2: Each block fills the (tileK, blockDim.y) shared memory
+    // Each thread fills a (rowsPerThread, 1) column, offset by i
     const auto t2ThreadY = threadIdx.y;
-    const auto shiftOffset = t1GlobalX + t1ThreadX;
 
     for (int k = 0; k < rowsPerThread; ++k) {
       const auto t2ThreadX = threadIdx.x * rowsPerThread + k;
-      const auto row = shiftOffset + t2GlobalX + t2ThreadX;
+      const auto row = i + tileOffset + t2ThreadX;
+      const auto col = j;
       if (row < n0) {
-        const auto col = t2GlobalY + t2ThreadY;
         // column major layout
-        const auto idx = row + col * n1;
-        const auto sIdx = t2ThreadX + t2ThreadY * tileK;
+        const auto idx = col * n1 + row;
+        const auto sIdx = t2ThreadY * tileK + t2ThreadX;
         t2_s[sIdx] = t2[idx];
       }
     }
