@@ -97,39 +97,83 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 }
 
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
-                                       const float *t1, const float *t2) {
-
-  int i, j, k;
+                                       const float *t1, const float *t2,
+                                       int tileK) {
 
   auto cta = cg::this_thread_block();
 
-  extern __shared__ float t0_s[];
-  float *t1_s = &t0_s[cta.size()];
+  extern __shared__ float t0_s[];                   // blockDim.x * blockDim.y
+  float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
+  float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
-  // each block will copy n0 / gridDim.x rows
-  const auto numRows = n0 / gridDim.x;
-  const auto rowOffset = blockIdx.x * numRows;
-  for (int r = 0; r < numRows; ++r) {
-    // copy a row of t0 and t1 into shared memory
-    i = rowOffset + r;
-    cg::memcpy_async(cta, t0_s, &t0[i * n1], sizeof(float) * cta.size());
-    cg::memcpy_async(cta, t1_s, &t1[i * n1], sizeof(float) * cta.size());
+  assert(n0 == cta.num_threads());
+  assert(n2 % blockDim.x == 0);
 
-    cg::wait(cta); // wait for copies to complete
+  // T0: prepare the result tile
+  // Each block copies blockDim.x x blockDim.y entries, one entry per thread
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int j = blockIdx.y * blockDim.y + threadIdx.y;
+  t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
 
-    // compute the row, assumes the number of threads == row width
-    j = threadIdx.x * blockDim.y + threadIdx.y;
+  // Due to shared memory limitations, we cannot fit complete rows or columns of
+  // T1 and T2 per block:
+  //   T1: only (blockDim.x, tileK) shared memory available
+  //   T2: only (tileK, blockDim.y) shared memory available
+  // Perform the copying and multiplication per tile, then accumulate
+  // the results in a blockDim.x by blockDim.y T0 tile
+  const auto numTilesPerBlock = n1 / tileK;
+  const auto colsPerThread = tileK / blockDim.y;
+  const auto rowsPerThread = tileK / blockDim.x;
 
-    // treat t2 as column major
-    for (k = 0; i + k < n1; ++k) {
-      t0_s[j] += t1_s[j] * t2[(i + k) + j * n2];
+  for (int t = 0; t < numTilesPerBlock; ++t) {
+    const auto tileOffset = t * tileK;
+
+    // T1: Each block fills the (blockDim.x, tileK) shared memory
+    // Each thread fills a (1, colsPerThread) row
+    const auto t1ThreadY = threadIdx.y * colsPerThread;
+    auto row = i;
+    auto col = tileOffset + t1ThreadY;
+    auto idx = row * n1 + col;
+    auto sIdx = threadIdx.x * tileK + t1ThreadY;
+
+    cg::memcpy_async(cta, t1_s + sIdx, t1 + idx, sizeof(float) * colsPerThread);
+
+#if T2_SMEM
+    // T2: Each block fills the (tileK, blockDim.y) shared memory
+    // Each thread fills a (rowsPerThread, 1) column, offset by i
+    const auto t2ThreadY = threadIdx.y;
+    const auto t2ThreadX = threadIdx.x * rowsPerThread;
+    row = i + tileOffset + t2ThreadX;
+    col = j;
+    if ((row + rowsPerThread) < n0) {
+      // column major layout
+      idx = col * n1 + row;
+      sIdx = t2ThreadY * tileK + t2ThreadX;
+      cg::memcpy_async(cta, t2_s + sIdx, t2 + idx,
+                       sizeof(float) * rowsPerThread);
     }
-    cta.sync(); // wait for all threads to compute
+    cg::wait(cta);
 
-    // write back to global memory
-    t0[i * n1 + j] = t0_s[j];
-    cta.sync(); // wait for all threads to consume
+#endif // T2_SMEM
+
+    // Each block multiplies blockDim.x by tileK with tileK by blockDim.y and
+    // accumulates the results into T0
+    // Each thread multiplies 1 x tileK with tileX by 1 and
+    // accumulates the results into T0
+    sIdx = threadIdx.x * blockDim.y + threadIdx.y;
+    for (int k = 0; k < tileK; ++k) {
+#if T2_SMEM
+      t0_s[sIdx] +=
+          t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
+#else
+      t0_s[sIdx] +=
+          t1_s[threadIdx.x * tileK + k] * t2[(i + t * tileK + k) * n1 + j];
+#endif // T2_SMEM
+    }
+    cg::sync(cta);
   }
+
+  t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
 }
 
 void run(int deviceId, Strategy strategy) {
@@ -167,8 +211,8 @@ void run(int deviceId, Strategy strategy) {
         n0, n1, n2, T0.data, T1.data, T2.data, tileK);
     break;
   case Strategy::AsynchronousCopy:
-    bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(n0, n1, n2, T0.data,
-                                                          T1.data, T2.data);
+    bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(
+        n0, n1, n2, T0.data, T1.data, T2.data, tileK);
     break;
   default:
     throw std::runtime_error("Unknown strategy");
@@ -216,7 +260,7 @@ void run(int deviceId, Strategy strategy) {
             break;
           case Strategy::AsynchronousCopy:
             bandedMatMul_asyncCopy<<<blocks, threads, smemSize>>>(
-                n0, n1, n2, T0.data, T1.data, T2.data);
+                n0, n1, n2, T0.data, T1.data, T2.data, tileK);
             break;
           default:
             break;
