@@ -18,8 +18,6 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
                                       const float *t1, const float *t2,
                                       int tileK) {
 
-  int i, j, k, t;
-
   auto cta = cg::this_thread_block();
 
   extern __shared__ float t0_s[];                   // blockDim.x * blockDim.y
@@ -31,11 +29,9 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   // T0: prepare the result tile
   // Each block copies blockDim.x x blockDim.y entries, one entry per thread
-  i = blockIdx.x * blockDim.x + threadIdx.x;
-  j = blockIdx.y * blockDim.y + threadIdx.y;
-  auto idx = i * n1 + j;
-  auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
-  t0_s[sIdx] = t0[idx];
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int j = blockIdx.y * blockDim.y + threadIdx.y;
+  t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
 
   // Due to shared memory limitations, we cannot fit complete rows or columns of
   // T1 and T2 per block:
@@ -47,7 +43,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   const auto colsPerThread = tileK / blockDim.y;
   const auto rowsPerThread = tileK / blockDim.x;
 
-  for (t = 0; t < numTiles; ++t) {
+  for (int t = 0; t < numTiles; ++t) {
     // T1:
     // Each block copies a blockDim.x by tileK tile
     // Each thread copies a 1 by tileK / blockDim.y sub-tile
@@ -56,10 +52,10 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
     const auto t1GlobalY = t * tileK;
     const auto shiftOffset = t1GlobalX + t1ThreadX;
 
-    for (k = 0; k < colsPerThread; ++k) {
+    for (int k = 0; k < colsPerThread; ++k) {
       const auto t1ThreadY = threadIdx.y * colsPerThread + k;
-      idx = (t1GlobalX + t1ThreadX) * n1 + t1GlobalY + t1ThreadY;
-      sIdx = t1ThreadX * tileK + t1ThreadY;
+      const auto idx = (t1GlobalX + t1ThreadX) * n1 + t1GlobalY + t1ThreadY;
+      const auto sIdx = t1ThreadX * tileK + t1ThreadY;
       t1_s[sIdx] = t1[idx];
     }
 
@@ -72,13 +68,13 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
     const auto t2GlobalX = t * tileK;
     const auto t2ThreadY = threadIdx.y;
 
-    for (k = 0; k < rowsPerThread; ++k) {
+    for (int k = 0; k < rowsPerThread; ++k) {
       const auto t2ThreadX = threadIdx.x * rowsPerThread + k;
 
       if (shiftOffset + t2GlobalX + t2ThreadX < n0) {
-        idx = (shiftOffset + t2GlobalX + t2ThreadX) +
-              (t2GlobalY + t2ThreadY) * n1;
-        sIdx = t2ThreadX + t2ThreadY * tileK;
+        const auto idx = (shiftOffset + t2GlobalX + t2ThreadX) +
+                         (t2GlobalY + t2ThreadY) * n1;
+        const auto sIdx = t2ThreadX + t2ThreadY * tileK;
         t2_s[sIdx] = t2[idx];
       }
     }
@@ -88,17 +84,14 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
     // Each block multiplies blockDim.x by tileK with tileK by blockDim.y and
     // accumulates the results into T0 Each thread multiplies 1 x tileK with
     // tileX by 1 and accumulates the results into T0
-    sIdx = threadIdx.x * blockDim.y + threadIdx.y;
-    for (k = 0; k < tileK; ++k) {
+    const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
+    for (int k = 0; k < tileK; ++k) {
       t0_s[sIdx] +=
           t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
     }
   }
 
-  cta.sync();
-
-  idx = i * n1 + j;
-  t0[idx] = t0_s[sIdx];
+  t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
 }
 
 __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
