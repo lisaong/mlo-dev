@@ -39,17 +39,18 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   //   T2: only tileK by blockDim.y in shared memory
   // Perform the copying and multiplication per tile, then accumulate
   // the results in a blockDim.x by blockDim.y T0 tile
-  const auto numTiles = n1 / tileK;
+  const auto numTilesPerBlock = n1 / tileK;
   const auto colsPerThread = tileK / blockDim.y;
   const auto rowsPerThread = tileK / blockDim.x;
 
   // Loop through each tile of T1 and T2
-  for (int t = 0; t < numTiles; ++t) {
-    // T1: Each block copies a blockDim.x by tileK tile;
-    // Each thread copies a 1 by tileK / blockDim.y row
+  for (int t = 0; t < numTilesPerBlock; ++t) {
+    // T1: Each block copies a blockDim.x by tileK tile per iteration
+    // Each thread copies a 1 by (tileK / blockDim.y) row, sliding column-wise
+    // by colsPerThread
     const auto t1GlobalX = blockIdx.x * blockDim.x;
-    const auto t1ThreadX = threadIdx.x;
     const auto t1GlobalY = t * tileK;
+    const auto t1ThreadX = threadIdx.x;
 
     for (int k = 0; k < colsPerThread; ++k) {
       const auto t1ThreadY = threadIdx.y * colsPerThread + k;
@@ -60,6 +61,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
       t1_s[sIdx] = t1[idx];
     }
 
+#if T2_SMEM
     // T2: Each block copies a tileK by blockDim.y tile;
     // Each thread copies a tileK / blockDim.x by 1 column
     // T2 values need to be shifted down by the row index of T1
@@ -79,7 +81,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         t2_s[sIdx] = t2[idx];
       }
     }
-
+#endif // T2_SMEM
     cta.sync();
 
     // Each block multiplies blockDim.x by tileK with tileK by blockDim.y and
@@ -88,8 +90,13 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
     // accumulates the results into T0
     const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
     for (int k = 0; k < tileK; ++k) {
+#if T2_SMEM
       t0_s[sIdx] +=
           t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
+#else
+      t0_s[sIdx] +=
+          t1_s[threadIdx.x * tileK + k] * t2[(i + t * tileK + k) * n1 + j];
+#endif // T2_SMEM
     }
   }
 
