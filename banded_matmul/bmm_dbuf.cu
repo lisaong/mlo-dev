@@ -76,17 +76,23 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 #endif // T2_SMEM
         cta.sync();
 
-        // Each block multiplies blockDim.x by tileK with tileK by blockDim.y
-        // and accumulates the results into T0 Each thread multiplies 1 x tileK
-        // with tileX by 1 and accumulates the results into T0
+        // Each block multiplies (blockDim.x, tileK) with (tileK, blockDim.y)
+        // and accumulates the results into T0
+        // Each thread multiplies (1, tileK) with (tileK, 1) for a particular
+        // (i, j) entry in T0
         const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
         for (int k = 0; k < tileK; ++k) {
 #if T2_SMEM
           t0_s[sIdx] +=
               t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
 #else
-          t0_s[sIdx] +=
-              t1_s[threadIdx.x * tileK + k] * t2[(i + tileOffset + k) + j * n2];
+          // reverse map T2's local row coordinate to global row coordinate
+          // local: k, global: t * tileK + k
+          const auto row = tileOffset + k;
+          if (i + row < n0) {
+            t0_s[sIdx] +=
+                t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
+          }
 #endif // T2_SMEM
         }
       }
@@ -201,8 +207,8 @@ void run(int deviceId, Strategy strategy) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
-  dim3 threads(16, 16, 1);
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+  // dim3 threads(16, 2, 1);
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
@@ -247,12 +253,12 @@ void run(int deviceId, Strategy strategy) {
 
       threads.x = blockDim;
       threads.y = kMaxBlockDim / blockDim;
-      blocks.x = ceildiv(n0, threads.x);
-      blocks.y = ceildiv(n1, threads.y);
-      tileK = n1 / threads.y; // TODO: check
+      blocks.x = n0 / threads.x;
+      blocks.y = n1 / threads.y;
+      tileK = n1 / threads.y;
       smemSize = threads.x * threads.y * sizeof(float) +
-                 threads.x * n2 * sizeof(float) +
-                 n2 * threads.y * sizeof(float);
+                 threads.x * tileK * sizeof(float) +
+                 tileK * threads.y * sizeof(float);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;

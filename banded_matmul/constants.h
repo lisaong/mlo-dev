@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-constexpr uint32_t N = 64;
+constexpr uint32_t N = 1024;
 
 constexpr uint32_t kBandDim = N;
 constexpr uint32_t kBlockDimX = 64;
