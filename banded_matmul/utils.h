@@ -181,7 +181,8 @@ void bandedMatMul_CPU(int n0, int n1, int n2, float *t0, const float *t1,
     for (j = 0; j < n1; ++j) {
       for (k = 0; i + k < n2; ++k) {
         if (t2ColumnMajor)
-          t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) + j * n1];
+          t0[i * n1 + j] = t2[(i + k) + j * n1];
+        // t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) + j * n1];
         else
           t0[i * n1 + j] += t1[i * n2 + k] * t2[(i + k) * n1 + j];
       }
@@ -195,15 +196,17 @@ void fillMatrices(Matrix<TOut> &T0, BandedMatrix<TIn> &T1, Matrix<TIn> &T2,
 
 #if DEBUG
   T0.debugInit();
+  T2.debugInit();
 #else
   T0.randomInit(11);
+  T2.randomInit(123);
 #endif
   CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
+  CHECK(cudaMemPrefetchAsync(T2.data, T2.size(), deviceId));
+
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
-  T2.randomInit(123);
   CHECK(cudaDeviceSynchronize());
-  CHECK(cudaMemPrefetchAsync(T2.data, T2.size(), deviceId));
 }
 
 template <typename TIn, typename TOut>
