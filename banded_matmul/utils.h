@@ -195,15 +195,23 @@ void fillMatrices(Matrix<TOut> &T0, BandedMatrix<TIn> &T1, Matrix<TIn> &T2,
 
 #if DEBUG
   T0.debugInit();
+  T2.debugInit();
+  // T2.print(10);
 #else
   T0.randomInit(11);
+  T2.randomInit(123);
 #endif
   CHECK(cudaMemPrefetchAsync(T0.data, T0.size(), deviceId));
+  CHECK(cudaMemPrefetchAsync(T2.data, T2.size(), deviceId));
+
+#if DEBUG
+  T1.debugInit();
+  CHECK(cudaMemPrefetchAsync(T1.data, T1.size(), deviceId));
+#else
   initBandedWith<<<blocks, threads>>>(22.0f, T1.data, T1.rows(), T1.columns(),
                                       T1.band());
-  T2.randomInit(123);
+#endif
   CHECK(cudaDeviceSynchronize());
-  CHECK(cudaMemPrefetchAsync(T2.data, T2.size(), deviceId));
 }
 
 template <typename TIn, typename TOut>
