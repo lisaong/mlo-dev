@@ -25,6 +25,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
   float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
+  int k;
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
        i += blockDim.x * gridDim.x) {
     for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
@@ -48,10 +49,10 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
         // T1: Each block fills the (blockDim.x, tileK) shared memory
         // Each thread fills a (1, colsPerThread) row
-        for (int k = 0; k < colsPerThread; ++k) {
-          const auto t1ThreadY = threadIdx.y * colsPerThread + k;
-          const auto col = kOffset + t1ThreadY;
-          const auto idx = i * n1 + col;
+        for (int kk = 0; kk < colsPerThread; ++kk) {
+          const auto t1ThreadY = threadIdx.y * colsPerThread + kk;
+          k = kOffset + t1ThreadY;
+          const auto idx = i * n1 + k;
           const auto sIdx = threadIdx.x * tileK + t1ThreadY;
           t1_s[sIdx] = t1[idx];
         }
@@ -61,13 +62,13 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         // Each thread fills a (rowsPerThread, 1) column, offset by i
         const auto rowsPerThread = tileK / blockDim.x;
 
-        for (int k = 0; k < rowsPerThread; ++k) {
-          const auto t2ThreadX = threadIdx.x * rowsPerThread + k;
-          const auto row = kOffset + t2ThreadX;
-          if ((i + row) < n0) {
+        for (int kk = 0; kk < rowsPerThread; ++kk) {
+          const auto t2ThreadX = threadIdx.x * rowsPerThread + kk;
+          k = kOffset + t2ThreadX;
+          if (i + k < n0) {
             // column major layout
-            const auto idx = (i + row) + j * n2;
-            const auto sIdx = t2ThreadX + threadIdx.y * tileK;
+            const auto idx = i + k + j * n1;
+            const auto sIdx = t2ThreadX * blockDim.y + threadIdx.y;
             t2_s[sIdx] = t2[idx];
           }
         }
@@ -79,18 +80,17 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         // Each thread multiplies (1, tileK) with (tileK, 1) for a particular
         // (i, j) entry in T0
         const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
-        for (int k = 0; k < tileK; ++k) {
+        for (int kk = 0; kk < tileK; ++kk) {
 #if T2_SMEM
-          t0_s[sIdx] = t2_s[threadIdx.y * tileK + k];
-          // t0_s[sIdx] +=
-          //     t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
+          // t0_s[sIdx] = t2_s[kk * blockDim.y + threadIdx.y];
+          t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] *
+                        t2_s[kk * blockDim.y + threadIdx.y];
 #else
-          // reverse map T2's local row coordinate to global row coordinate
-          // local: k, global: t * tileK + k
-          const auto row = tileOffset + k;
-          if (i + row < n0) {
-            t0_s[sIdx] +=
-                t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
+          k = kOffset + kk;
+          if (i + k < n0) {
+            // reverse map T2's local row coordinate to global row coordinate
+            // local: kk, global: t * tileK + kk
+            t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] * t2[(i + k) + j * n2];
           }
 #endif // T2_SMEM
         }
@@ -172,7 +172,7 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 #else
           // reverse map T2's local row coordinate to global row coordinate
           // local: k, global: t * tileK + k
-          const auto row = tileOffset + k;
+          const auto row = kOffset + k;
           if (i + row < n0) {
             t0_s[sIdx] +=
                 t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
