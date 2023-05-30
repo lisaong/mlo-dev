@@ -5,7 +5,7 @@
 #include <cuda_runtime.h>
 
 // #define T2_SMEM 1
-// #define DEBUG 1
+#define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -209,6 +209,9 @@ void run(int deviceId, Strategy strategy) {
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
+  std::cout << "Running with " << blocks.x << " x " << blocks.y << " blocks of "
+            << threads.x << " x " << threads.y << " threads" << std::endl;
+
   // divide the inner dimension (k) among threads.y
   int tileK = n1 / threads.y;
 
@@ -324,7 +327,7 @@ int main(int argc, const char **argv) {
   if (argc > 2) {
     strategy = static_cast<Strategy>(atoi(argv[2]));
   }
-  std::cout << "Using strategy " << static_cast<int>(strategy) << std::endl;
+  std::cout << "Using strategy " << argv[2] << std::endl;
 
   run(deviceId, strategy);
   return 0;
