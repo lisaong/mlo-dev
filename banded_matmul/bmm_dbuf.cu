@@ -2,11 +2,10 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cstdint>
-// #include <cuda/pipeline>
 #include <cuda_runtime.h>
 
-#define T2_SMEM 1
-#define DEBUG 1
+// #define T2_SMEM 1
+// #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
@@ -82,7 +81,6 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
         for (int kk = 0; kk < tileK; ++kk) {
 #if T2_SMEM
-          // t0_s[sIdx] = t2_s[kk * blockDim.y + threadIdx.y];
           t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] *
                         t2_s[kk * blockDim.y + threadIdx.y];
 #else
@@ -203,8 +201,11 @@ void run(int deviceId, Strategy strategy) {
   CHECK(cudaMallocManaged(&T2.data, T2.size()));
 
   // Initialize
-  // dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+#if DEBUG
   dim3 threads(16, 2, 1);
+#else
+  dim3 threads(kBlockDimX, kMaxBlockDim / kBlockDimX, 1);
+#endif
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
