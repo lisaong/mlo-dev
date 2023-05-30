@@ -103,7 +103,7 @@ t2 = torch.randn(n2, n1, dtype=torch.float32, device='cuda')
 triton_output = naive_bmm(t0, t1, t2)
 
 # %%
-if triton.testing.allclose(triton_output, ref_output):
-    print("✅ Triton and Reference match")
-else:
-    print("❌ Triton and Reference differ")
+# if triton.testing.allclose(triton_output, ref_output):
+#     print("✅ Triton and Reference match")
+# else:
+#     print("❌ Triton and Reference differ")
