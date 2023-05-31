@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.hat": "c",
+        "ostream": "cpp"
+    }
+}

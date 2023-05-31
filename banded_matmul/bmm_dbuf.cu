@@ -40,7 +40,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
       //   T2: only (tileK, blockDim.y) shared memory available
       // Perform the copying and multiplication per tile, then accumulate
       // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n1 / tileK;
+      const auto numKTilesPerBlock = n2 / tileK;
       const auto colsPerThread = tileK / blockDim.y;
 
       for (int t = 0; t < numKTilesPerBlock; ++t) {
@@ -51,7 +51,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         for (int kk = 0; kk < colsPerThread; ++kk) {
           const auto t1ThreadY = threadIdx.y * colsPerThread + kk;
           k = kOffset + t1ThreadY;
-          const auto idx = i * n1 + k;
+          const auto idx = i * n2 + k;
           const auto sIdx = threadIdx.x * tileK + t1ThreadY;
           t1_s[sIdx] = t1[idx];
         }
@@ -110,12 +110,15 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
+       i += blockDim.y * gridDim.y) {
     for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
          j += blockDim.y * gridDim.y) {
 
       // T0: prepare the result tile
       // Each block copies blockDim.x x blockDim.y entries, one entry per thread
+
+      // Note: if copying multiple items, i should increment by (num_threads /
+      // num_cols) per tile
       t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
 
       // Due to shared memory limitations, we cannot fit complete rows or
@@ -124,21 +127,23 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
       //   T2: only (tileK, blockDim.y) shared memory available
       // Perform the copying and multiplication per tile, then accumulate
       // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n1 / tileK;
-      const auto colsPerThread = tileK / blockDim.y;
+      const auto numKTilesPerBlock = n2 / tileK;
 
       for (int t = 0; t < numKTilesPerBlock; ++t) {
         const auto kOffset = t * tileK;
 
         // T1: Each block fills the (blockDim.x, tileK) shared memory
-        // Each thread fills a (1, colsPerThread) row
-        const auto t1ThreadY = threadIdx.y * colsPerThread;
-        auto col = kOffset + t1ThreadY;
-        auto idx = i * n1 + col;
-        auto sIdx = threadIdx.x * tileK + t1ThreadY;
+        // To perform the block-level copying, we'll need to loop over the rows
+        // of t1 (1, tileK) because we can only specify contiguous memory
+        // to memcpy_async
+        for (int ii = 0; ii < blockDim.x; ++ii) {
+          // collaboratively copy a row
+          const auto sIdxRow = ii * tileK;
+          const auto idxRow = (blockIdx.x * blockDim.x + ii) * n2 + kOffset;
 
-        cg::memcpy_async(cta, t1_s + sIdx, t1 + idx,
-                         sizeof(float) * colsPerThread);
+          cg::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
+                           sizeof(float) * tileK);
+        }
 
 #if T2_SMEM
         {
@@ -162,7 +167,7 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
         // Each block multiplies blockDim.x by tileK with tileK by blockDim.y
         // and accumulates the results into T0 Each thread multiplies 1 x tileK
         // with tileX by 1 and accumulates the results into T0
-        sIdx = threadIdx.x * blockDim.y + threadIdx.y;
+        const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
         for (int k = 0; k < tileK; ++k) {
 #if T2_SMEM
           t0_s[sIdx] +=
@@ -208,6 +213,9 @@ void run(int deviceId, Strategy strategy) {
 #endif
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
+
+  std::cout << "Running with " << blocks.x << " x " << blocks.y << " blocks of "
+            << threads.x << " x " << threads.y << " threads" << std::endl;
 
   // divide the inner dimension (k) among threads.y
   int tileK = n1 / threads.y;
@@ -324,7 +332,7 @@ int main(int argc, const char **argv) {
   if (argc > 2) {
     strategy = static_cast<Strategy>(atoi(argv[2]));
   }
-  std::cout << "Using strategy " << static_cast<int>(strategy) << std::endl;
+  std::cout << "Using strategy " << argv[2] << std::endl;
 
   run(deviceId, strategy);
   return 0;
