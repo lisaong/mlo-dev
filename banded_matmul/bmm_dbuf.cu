@@ -3,6 +3,7 @@
 #include <cooperative_groups/memcpy_async.h>
 #include <cstdint>
 #include <cuda_runtime.h>
+#include <cuda/barrier>
 
 // #define DEBUG 1
 #include "constants.h"
@@ -16,6 +17,9 @@ enum class Strategy {
   AsynchronousCopy = 1,
   AsynchronousCopyBarriers = 2
 };
+
+// TODOs:
+//  - T2 block copies into shared memory, possible?
 
 __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
                                       const float *t1, const float *t2,
@@ -40,7 +44,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
     float t0_thread = 0.0f; // holds the result for this thread
 
     // Due to shared memory limitations, we cannot fit complete rows or
-    // columns of T1 and T2 per block:
+    // columns of T1 per block:
     //   T1: only (blockDim.x, tileK) shared memory available
     // Perform the copying and multiplication per tile, then accumulate
     // the results in a blockDim.x by blockDim.y T0 tile
