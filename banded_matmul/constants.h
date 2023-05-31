@@ -2,8 +2,11 @@
 
 #include <cstdint>
 
-// constexpr uint32_t N = 1024;
+#if DEBUG
 constexpr uint32_t N = 64;
+#else
+constexpr uint32_t N = 1024;
+#endif
 
 constexpr uint32_t kBandDim = N;
 constexpr uint32_t kBlockDimX = 64;
