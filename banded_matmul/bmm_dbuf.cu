@@ -40,7 +40,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
       //   T2: only (tileK, blockDim.y) shared memory available
       // Perform the copying and multiplication per tile, then accumulate
       // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n1 / tileK;
+      const auto numKTilesPerBlock = n2 / tileK;
       const auto colsPerThread = tileK / blockDim.y;
 
       for (int t = 0; t < numKTilesPerBlock; ++t) {
@@ -51,7 +51,7 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
         for (int kk = 0; kk < colsPerThread; ++kk) {
           const auto t1ThreadY = threadIdx.y * colsPerThread + kk;
           k = kOffset + t1ThreadY;
-          const auto idx = i * n1 + k;
+          const auto idx = i * n2 + k;
           const auto sIdx = threadIdx.x * tileK + t1ThreadY;
           t1_s[sIdx] = t1[idx];
         }
@@ -127,7 +127,7 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
       //   T2: only (tileK, blockDim.y) shared memory available
       // Perform the copying and multiplication per tile, then accumulate
       // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n1 / tileK;
+      const auto numKTilesPerBlock = n2 / tileK;
 
       for (int t = 0; t < numKTilesPerBlock; ++t) {
         const auto kOffset = t * tileK;
@@ -139,7 +139,7 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
         for (int ii = 0; ii < blockDim.x; ++ii) {
           // collaboratively copy a row
           const auto sIdxRow = ii * tileK;
-          const auto idxRow = (blockIdx.x * blockDim.x + ii) * n1 + kOffset;
+          const auto idxRow = (blockIdx.x * blockDim.x + ii) * n2 + kOffset;
 
           cg::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
                            sizeof(float) * tileK);
