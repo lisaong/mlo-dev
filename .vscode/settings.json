@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "*.hat": "c",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "*.tcc": "cpp",
+        "streambuf": "cpp",
+        "barrier": "cpp"
     }
 }

@@ -2,14 +2,15 @@
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cstdint>
-#include <cuda_runtime.h>
 #include <cuda/barrier>
+#include <cuda_runtime.h>
 
 // #define DEBUG 1
 #include "constants.h"
 #include "utils.h"
 
 // https://developer.nvidia.com/blog/cooperative-groups/
+// https://developer.nvidia.com/blog/controlling-data-movement-to-boost-performance-on-ampere-architecture/
 namespace cg = cooperative_groups;
 
 enum class Strategy {
@@ -153,6 +154,14 @@ __global__ void bandedMatMul_asyncCopyBarriers(int n0, int n1, int n2,
 
   auto cta = cg::this_thread_block();
 
+  // Create a synchronization object (C++20 barrier)
+  __shared__ cuda::barrier<cuda::thread_scope::thread_scope_block> barrier;
+
+  if (cta.thread_rank() == 0) {
+    init(&barrier, cta.size());
+  }
+  cta.sync();
+
   extern __shared__ float t1_s[];                   // blockDim.x * tileK
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
@@ -187,11 +196,12 @@ __global__ void bandedMatMul_asyncCopyBarriers(int n0, int n1, int n2,
         const auto sIdxRow = ii * tileK;
         const auto idxRow = (blockIdx.x * blockDim.x + ii) * n2 + kOffset;
 
-        cg::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
-                         sizeof(float) * tileK);
-      }
+        cuda::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
+                           sizeof(float) * tileK, barrier);
 
-      cg::wait(cta);
+        // BUGBUG: hangs for certain block sizes
+        barrier.arrive_and_wait(); // Wait for all copies to complete
+      }
 
       // Each block multiplies blockDim.x by tileK with tileK by blockDim.y
       // and accumulates the results into T0 Each thread multiplies 1 x tileK
@@ -207,6 +217,7 @@ __global__ void bandedMatMul_asyncCopyBarriers(int n0, int n1, int n2,
     }
 
     t0[i * n1 + j] += t0_thread;
+    barrier.arrive_and_wait();
   }
 }
 
@@ -326,6 +337,11 @@ void run(int deviceId, Strategy strategy, int tileK) {
         std::cout << "Skipping Blocksize: " << blockDim << ", " << e.what()
                   << std::endl;
         continue;
+      }
+
+      // BUGBUG: hangs for other block sizes
+      if (strategy == Strategy::AsynchronousCopyBarriers) {
+        break;
       }
     }
 
