@@ -24,16 +24,25 @@ clang-format -i *.cu *.h
 # echo "=================="
 
 rm -rf bmm_dbuf
-# nvcc --maxrregcount=64 -g -G -o bmm_dbuf bmm_dbuf.cu
+
+NVCC_FLAGS="-use_fast_math --std=c++20 --gpu-architecture=compute_86 -diag-suppress 20054"
+NVCC_DEBUG_FLAGS="$NVCC_FLAGS --maxrregcount=64 -g -G"
+
+# nvcc $NVCC_DEBUG_FLAGS -o bmm_dbuf bmm_dbuf.cu
 # cuda-gdb bmm_dbuf
 
-nvcc -use_fast_math --std=c++20 -o bmm_dbuf bmm_dbuf.cu
-echo "Running bmm_dbuf: cooperative group synchronous copy"
-./bmm_dbuf $GPU_ID 0
-echo "=================="
+nvcc $NVCC_FLAGS -o bmm_dbuf bmm_dbuf.cu
 
-echo "Running bmm_dbuf: cooperative group asynchronous copy"
-./bmm_dbuf $GPU_ID 1
+# echo "Running bmm_dbuf: cooperative group synchronous copy"
+# ./bmm_dbuf $GPU_ID 0
+# echo "=================="
+
+# echo "Running bmm_dbuf: cooperative group asynchronous copy"
+# ./bmm_dbuf $GPU_ID 1
+# echo "=================="
+
+echo "Running bmm_dbuf: cooperative group asynchronous copy with arrive-wait barriers"
+./bmm_dbuf $GPU_ID 2
 echo "=================="
 
 # rm -rf bmm_wmma

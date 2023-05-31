@@ -34,7 +34,7 @@
         {
             "label": "build bmm_dbuf",
             "type": "shell",
-            "command": "nvcc --maxrregcount=64 -g -G -o bmm_dbuf bmm_dbuf.cu",
+            "command": "nvcc --maxrregcount=64 -g -G --std=c++20 --gpu-architecture=compute_86 -diag-suppress 20054 -o bmm_dbuf bmm_dbuf.cu",
             "problemMatcher": [
                 "$nvcc"
             ],
