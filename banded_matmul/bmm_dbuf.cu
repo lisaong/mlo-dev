@@ -20,82 +20,82 @@ __global__ void bandedMatMul_syncCopy(int n0, int n1, int n2, float *t0,
 
   auto cta = cg::this_thread_block();
 
-  extern __shared__ float t0_s[];                   // blockDim.x * blockDim.y
-  float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
+  extern __shared__ float t1_s[];                   // blockDim.x * tileK
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
-  int k;
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.x * gridDim.x) {
-    for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.y * gridDim.y) {
+  const auto iBegin = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto iStep =
+      blockDim.x * gridDim.x; // number of threads per grid, if grid_size < n0
 
-      // T0: prepare the result tile
-      // Each block copies blockDim.x x blockDim.y entries, one entry per thread
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
+  const auto jBegin = blockIdx.y * blockDim.y + threadIdx.y;
+  const auto jStep =
+      blockDim.y * gridDim.y; // number of threads per grid, if grid_size < n1
 
-      // Due to shared memory limitations, we cannot fit complete rows or
-      // columns of T1 and T2 per block:
-      //   T1: only (blockDim.x, tileK) shared memory available
-      //   T2: only (tileK, blockDim.y) shared memory available
-      // Perform the copying and multiplication per tile, then accumulate
-      // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n2 / tileK;
-      const auto colsPerThread = tileK / blockDim.y;
+  for (int i = iBegin, j = jBegin; i < n0 && j < n1; i += iStep, j += jStep) {
+    int k;
 
-      for (int t = 0; t < numKTilesPerBlock; ++t) {
-        const auto kOffset = t * tileK;
+    float t0_thread = 0.0f; // holds the result for this thread
 
-        // T1: Each block fills the (blockDim.x, tileK) shared memory
-        // Each thread fills a (1, colsPerThread) row
-        for (int kk = 0; kk < colsPerThread; ++kk) {
-          const auto t1ThreadY = threadIdx.y * colsPerThread + kk;
-          k = kOffset + t1ThreadY;
-          const auto idx = i * n2 + k;
-          const auto sIdx = threadIdx.x * tileK + t1ThreadY;
-          t1_s[sIdx] = t1[idx];
-        }
+    // Due to shared memory limitations, we cannot fit complete rows or
+    // columns of T1 and T2 per block:
+    //   T1: only (blockDim.x, tileK) shared memory available
+    //   T2: only (tileK, blockDim.y) shared memory available
+    // Perform the copying and multiplication per tile, then accumulate
+    // the results in a blockDim.x by blockDim.y T0 tile
+    const auto numKTilesPerBlock = n2 / tileK;
+    const auto colsPerThread = tileK / blockDim.y;
 
-#if T2_SMEM
-        // T2: Each block fills the (tileK, blockDim.y) shared memory
-        // Each thread fills a (rowsPerThread, 1) column, offset by i
-        const auto rowsPerThread = tileK / blockDim.x;
+    for (int t = 0; t < numKTilesPerBlock; ++t) {
+      const auto kOffset = t * tileK;
 
-        for (int kk = 0; kk < rowsPerThread; ++kk) {
-          const auto t2ThreadX = threadIdx.x * rowsPerThread + kk;
-          k = kOffset + t2ThreadX;
-          if (i + k < n0) {
-            // column major layout
-            const auto idx = i + k + j * n1;
-            const auto sIdx = t2ThreadX * blockDim.y + threadIdx.y;
-            t2_s[sIdx] = t2[idx];
-          }
-        }
-#endif // T2_SMEM
-        cta.sync();
-
-        // Each block multiplies (blockDim.x, tileK) with (tileK, blockDim.y)
-        // and accumulates the results into T0
-        // Each thread multiplies (1, tileK) with (tileK, 1) for a particular
-        // (i, j) entry in T0
-        const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
-        for (int kk = 0; kk < tileK; ++kk) {
-#if T2_SMEM
-          t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] *
-                        t2_s[kk * blockDim.y + threadIdx.y];
-#else
-          k = kOffset + kk;
-          if (i + k < n0) {
-            // reverse map T2's local row coordinate to global row coordinate
-            // local: kk, global: t * tileK + kk
-            t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] * t2[(i + k) + j * n2];
-          }
-#endif // T2_SMEM
-        }
+      // T1: Each block fills the (blockDim.x, tileK) shared memory
+      // Each thread fills a (1, colsPerThread) row
+      for (int kk = 0; kk < colsPerThread; ++kk) {
+        const auto t1ThreadY = threadIdx.y * colsPerThread + kk;
+        k = kOffset + t1ThreadY;
+        const auto idx = i * n2 + k;
+        const auto sIdx = threadIdx.x * tileK + t1ThreadY;
+        t1_s[sIdx] = t1[idx];
       }
 
-      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
+#if T2_SMEM
+      // T2: Each block fills the (tileK, blockDim.y) shared memory
+      // Each thread fills a (rowsPerThread, 1) column, offset by i
+      const auto rowsPerThread = tileK / blockDim.x;
+
+      for (int kk = 0; kk < rowsPerThread; ++kk) {
+        const auto t2ThreadX = threadIdx.x * rowsPerThread + kk;
+        k = kOffset + t2ThreadX;
+        if (i + k < n0) {
+          // column major layout
+          const auto idx = i + k + j * n1;
+          const auto sIdx = t2ThreadX * blockDim.y + threadIdx.y;
+          t2_s[sIdx] = t2[idx];
+        }
+      }
+#endif // T2_SMEM
+      cta.sync();
+
+      // Each block multiplies (blockDim.x, tileK) with (tileK, blockDim.y)
+      // and accumulates the results into T0
+      // Each thread multiplies (1, tileK) with (tileK, 1) for a particular
+      // (i, j) entry in T0
+      for (int kk = 0; kk < tileK; ++kk) {
+#if T2_SMEM
+        t0_s[sIdx] += t1_s[threadIdx.x * tileK + kk] *
+                      t2_s[kk * blockDim.y + threadIdx.y];
+#else
+        k = kOffset + kk;
+        if (i + k < n0) {
+          // reverse map T2's local row coordinate to global row coordinate
+          // local: kk, global: t * tileK + kk
+          t0_thread += t1_s[threadIdx.x * tileK + kk] * t2[(i + k) + j * n2];
+        }
+#endif // T2_SMEM
+      }
     }
+
+    t0[i * n1 + j] += t0_thread;
   }
 }
 
@@ -105,88 +105,81 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
 
   auto cta = cg::this_thread_block();
 
-  extern __shared__ float t0_s[];                   // blockDim.x * blockDim.y
-  float *t1_s = &t0_s[cta.size()];                  // blockDim.x * tileK
+  extern __shared__ float t1_s[];                   // blockDim.x * tileK
   float *t2_s = &t1_s[cta.dim_threads().x * tileK]; // tileK * blockDim.y
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n0;
-       i += blockDim.y * gridDim.y) {
-    for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < n1;
-         j += blockDim.y * gridDim.y) {
+  float t0_thread = 0.0f; // holds the result for this thread
 
-      // T0: prepare the result tile
-      // Each block copies blockDim.x x blockDim.y entries, one entry per thread
+  const auto iBegin = blockIdx.x * blockDim.x + threadIdx.x;
+  const auto iStep = blockDim.x * gridDim.x; // number of threads per grid
 
-      // Note: if copying multiple items, i should increment by (num_threads /
-      // num_cols) per tile
-      t0_s[threadIdx.x * blockDim.y + threadIdx.y] = t0[i * n1 + j];
+  const auto jBegin = blockIdx.y * blockDim.y + threadIdx.y;
+  const auto jStep = blockDim.y * gridDim.y;
 
-      // Due to shared memory limitations, we cannot fit complete rows or
-      // columns of T1 and T2 per block:
-      //   T1: only (blockDim.x, tileK) shared memory available
-      //   T2: only (tileK, blockDim.y) shared memory available
-      // Perform the copying and multiplication per tile, then accumulate
-      // the results in a blockDim.x by blockDim.y T0 tile
-      const auto numKTilesPerBlock = n2 / tileK;
+  for (int i = iBegin, j = jBegin; i < n0 && j < n1; i += iStep, j += jStep) {
 
-      for (int t = 0; t < numKTilesPerBlock; ++t) {
-        const auto kOffset = t * tileK;
+    // Due to shared memory limitations, we cannot fit complete rows or
+    // columns of T1 and T2 per block:
+    //   T1: only (blockDim.x, tileK) shared memory available
+    //   T2: only (tileK, blockDim.y) shared memory available
+    // Perform the copying and multiplication per tile, then accumulate
+    // the results in a blockDim.x by blockDim.y T0 tile
+    const auto numKTilesPerBlock = n2 / tileK;
 
-        // T1: Each block fills the (blockDim.x, tileK) shared memory
-        // To perform the block-level copying, we'll need to loop over the rows
-        // of t1 (1, tileK) because we can only specify contiguous memory
-        // to memcpy_async
-        for (int ii = 0; ii < blockDim.x; ++ii) {
-          // collaboratively copy a row
-          const auto sIdxRow = ii * tileK;
-          const auto idxRow = (blockIdx.x * blockDim.x + ii) * n2 + kOffset;
+    for (int t = 0; t < numKTilesPerBlock; ++t) {
+      const auto kOffset = t * tileK;
 
-          cg::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
-                           sizeof(float) * tileK);
-        }
+      // T1: Each block fills the (blockDim.x, tileK) shared memory
+      // To perform the block-level copying, we'll need to loop over the rows
+      // of t1 (1, tileK) because we can only specify contiguous memory
+      // to memcpy_async
+      for (int ii = 0; ii < blockDim.x; ++ii) {
+        // collaboratively copy a row
+        const auto sIdxRow = ii * tileK;
+        const auto idxRow = (blockIdx.x * blockDim.x + ii) * n2 + kOffset;
+
+        cg::memcpy_async(cta, t1_s + sIdxRow, t1 + idxRow,
+                         sizeof(float) * tileK);
+      }
 
 #if T2_SMEM
-        {
-          // T2: Each block fills the (tileK, blockDim.y) shared memory
-          // Each thread fills a (rowsPerThread, 1) column, offset by i
-          const auto rowsPerThread = tileK / blockDim.x;
-          const auto t2ThreadX = threadIdx.x * rowsPerThread;
-          const auto row = i + kOffset + t2ThreadX;
-          if ((row + rowsPerThread) < n0) {
-            // column major layout
-            idx = j * n1 + row;
-            sIdx = threadIdx.y * tileK + t2ThreadX;
-            cg::memcpy_async(cta, t2_s + sIdx, t2 + idx,
-                             sizeof(float) * rowsPerThread);
-          }
-        }
-
-#endif // T2_SMEM
-        cg::wait(cta);
-
-        // Each block multiplies blockDim.x by tileK with tileK by blockDim.y
-        // and accumulates the results into T0 Each thread multiplies 1 x tileK
-        // with tileX by 1 and accumulates the results into T0
-        const auto sIdx = threadIdx.x * blockDim.y + threadIdx.y;
-        for (int k = 0; k < tileK; ++k) {
-#if T2_SMEM
-          t0_s[sIdx] +=
-              t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
-#else
-          // reverse map T2's local row coordinate to global row coordinate
-          // local: k, global: t * tileK + k
-          const auto row = kOffset + k;
-          if (i + row < n0) {
-            t0_s[sIdx] +=
-                t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
-          }
-#endif // T2_SMEM
+      {
+        // T2: Each block fills the (tileK, blockDim.y) shared memory
+        // Each thread fills a (rowsPerThread, 1) column, offset by i
+        const auto rowsPerThread = tileK / blockDim.x;
+        const auto t2ThreadX = threadIdx.x * rowsPerThread;
+        const auto row = i + kOffset + t2ThreadX;
+        if ((row + rowsPerThread) < n0) {
+          // column major layout
+          idx = j * n1 + row;
+          sIdx = threadIdx.y * tileK + t2ThreadX;
+          cg::memcpy_async(cta, t2_s + sIdx, t2 + idx,
+                           sizeof(float) * rowsPerThread);
         }
       }
 
-      t0[i * n1 + j] = t0_s[threadIdx.x * blockDim.y + threadIdx.y];
-      cta.sync();
+#endif // T2_SMEM
+      cg::wait(cta);
+
+      // Each block multiplies blockDim.x by tileK with tileK by blockDim.y
+      // and accumulates the results into T0 Each thread multiplies 1 x tileK
+      // with tileX by 1 and accumulates the results into T0
+      for (int k = 0; k < tileK; ++k) {
+#if T2_SMEM
+        t0_thread +=
+            t1_s[threadIdx.x * tileK + k] * t2_s[threadIdx.y * tileK + k];
+#else
+        // reverse map T2's local row coordinate to global row coordinate
+        // local: k, global: t * tileK + k
+        const auto row = kOffset + k;
+        if (i + row < n0) {
+          t0_thread += t1_s[threadIdx.x * tileK + k] * t2[(i + row) + j * n2];
+        }
+#endif // T2_SMEM
+      }
     }
+
+    t0[i * n1 + j] += t0_thread;
   }
 }
 
@@ -220,10 +213,9 @@ void run(int deviceId, Strategy strategy) {
   // divide the inner dimension (k) among threads.y
   int tileK = n1 / threads.y;
 
-  // hold tiles of T0, T1, and T2 in shared memory
-  uint32_t smemSize = threads.x * threads.y * sizeof(float) +
-                      threads.x * tileK * sizeof(float) +
-                      tileK * threads.y * sizeof(float);
+  // hold tiles of T1 and T2 in shared memory
+  uint32_t smemSize =
+      threads.x * tileK * sizeof(float) + tileK * threads.y * sizeof(float);
 
   // Verify
   switch (strategy) {
