@@ -185,7 +185,7 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   }
 }
 
-void run(int deviceId, Strategy strategy) {
+void run(int deviceId, Strategy strategy, int tileK) {
 
   const int n0 = N; // n0: number of rows in T0 and T1
   const int n1 = N; // n1: number of columns in T0 and T2
@@ -208,9 +208,6 @@ void run(int deviceId, Strategy strategy) {
 #endif
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
-
-  // divide the inner dimension (k) among threads.x
-  int tileK = n1 / threads.x;
 
   std::cout << "Running with " << blocks.x << " x " << blocks.y << " blocks of "
             << threads.x << " x " << threads.y << " threads, K tile of "
@@ -245,7 +242,7 @@ void run(int deviceId, Strategy strategy) {
     cudaEventCreate(&_start);
     cudaEventCreate(&_stop);
 
-    // Try different block sizes
+    // Try different block sizes and tile sizes
     std::cout << "GridDim,BlockDim,FLOPS,GFLOPS" << std::endl;
 
     for (uint32_t blockDim = kBlockDimX; blockDim <= kBlockDimXMax;
@@ -327,6 +324,9 @@ int main(int argc, const char **argv) {
   }
   std::cout << "Using strategy " << argv[2] << std::endl;
 
-  run(deviceId, strategy);
+  for (uint32_t tileK = 16; tileK <= 128; tileK *= 2) {
+    run(deviceId, strategy, tileK);
+  }
+
   return 0;
 }
