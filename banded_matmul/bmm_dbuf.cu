@@ -111,10 +111,12 @@ __global__ void bandedMatMul_asyncCopy(int n0, int n1, int n2, float *t0,
   float t0_thread = 0.0f; // holds the result for this thread
 
   const auto iBegin = blockIdx.x * blockDim.x + threadIdx.x;
-  const auto iStep = blockDim.x * gridDim.x; // number of threads per grid
+  const auto iStep =
+      blockDim.x * gridDim.x; // number of threads per grid, if grid_size < n0
 
   const auto jBegin = blockIdx.y * blockDim.y + threadIdx.y;
-  const auto jStep = blockDim.y * gridDim.y;
+  const auto jStep =
+      blockDim.y * gridDim.y; // number of threads per grid, if grid_size < n1
 
   for (int i = iBegin, j = jBegin; i < n0 && j < n1; i += iStep, j += jStep) {
 
@@ -207,11 +209,12 @@ void run(int deviceId, Strategy strategy) {
   dim3 blocks(n0 / threads.x, n1 / threads.y, 1);
   fillMatrices(T0, T1, T2, blocks, threads, deviceId);
 
-  std::cout << "Running with " << blocks.x << " x " << blocks.y << " blocks of "
-            << threads.x << " x " << threads.y << " threads" << std::endl;
+  // divide the inner dimension (k) among threads.x
+  int tileK = n1 / threads.x;
 
-  // divide the inner dimension (k) among threads.y
-  int tileK = n1 / threads.y;
+  std::cout << "Running with " << blocks.x << " x " << blocks.y << " blocks of "
+            << threads.x << " x " << threads.y << " threads, K tile of "
+            << tileK << std::endl;
 
   // hold tiles of T1 and T2 in shared memory
   uint32_t smemSize =
@@ -252,10 +255,8 @@ void run(int deviceId, Strategy strategy) {
       threads.y = kMaxBlockDim / blockDim;
       blocks.x = n0 / threads.x;
       blocks.y = n1 / threads.y;
-      tileK = n1 / threads.y;
-      smemSize = threads.x * threads.y * sizeof(float) +
-                 threads.x * tileK * sizeof(float) +
-                 tileK * threads.y * sizeof(float);
+      smemSize =
+          threads.x * tileK * sizeof(float) + tileK * threads.y * sizeof(float);
 
       try {
         double elapsedTimeMilliseconds = 0.0f;
