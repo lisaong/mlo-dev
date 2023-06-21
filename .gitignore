@@ -138,3 +138,4 @@ logs/
 
 *.deb
 *.run
+hip/vector_add

@@ -20,7 +20,7 @@ void run()
     constexpr int blockSize = 1024;
     constexpr float16_t tolerance = 1e-5;
 
-    size_t bytes = N * sizeof(double);
+    const size_t bytes = N * sizeof(double);
 
     // allocate host memory
     float16_t *CPUArrayA = reinterpret_cast<float16_t *>(malloc(bytes));
@@ -47,20 +47,21 @@ void run()
     HIP_ASSERT(hipMemcpy(GPUArrayA, CPUArrayA, bytes, hipMemcpyHostToDevice));
     HIP_ASSERT(hipMemcpy(GPUArrayB, CPUArrayB, bytes, hipMemcpyHostToDevice));
 
-    const int gridSize = (int)ceil((float)n / blockSize);
+    const auto gridSize = static_cast<int>(ceil((float)N / blockSize));
 
     vectorAdd<<<gridSize, blockSize>>>(GPUArrayA, GPUArrayB, GPUArrayC, N);
     hipDeviceSynchronize();
 
-    HIP_ASSERT(hipMemCpy(CPUArrayC, GPUArrayC, bytes, hipMemcpyDeviceToHost));
+    HIP_ASSERT(hipMemcpy(CPUArrayC, GPUArrayC, bytes, hipMemcpyDeviceToHost));
 
     // verify
     for (int i = 0; i < N; ++i)
     {
         float16_t verify = CPUArrayA[i] + CPUArrayB[i];
-        if (abs(verify - CPUArrayC[i]) > tolerance)
+        if (abs(static_cast<float>(verify - CPUArrayC[i])) > tolerance)
         {
-            std::cout << "Error at [" << i << "], expected: " << verify << ", got: " << CPUArrayC[i] << std::endl;
+            std::cout << "Error at [" << i << "], expected: " << static_cast<float>(verify)
+                      << ", got: " << static_cast<float>(CPUArrayC[i]) << std::endl;
         }
     }
 

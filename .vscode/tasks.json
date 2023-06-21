@@ -13,7 +13,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm.cu"
             }
         },
         {
@@ -28,7 +28,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": "bmm.cu"
+                "isDefault": "bmm_smem.cu"
             }
         },
         {
