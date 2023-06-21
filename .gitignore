@@ -139,6 +139,9 @@ logs/
 *.deb
 *.run
 
+# vscode
+settings.json
+
 # hip
 hip/vector_add
 hip/*.csv
