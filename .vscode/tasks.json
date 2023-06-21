@@ -72,6 +72,19 @@
                 "kind": "build",
                 "isDefault": "vector_add.cu"
             }
+        },
+        {
+            "label": "run vector_add",
+            "type": "shell",
+            "command": "./vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "vector_add.cu"
+            },
+            "dependsOn" : ["build vector_add"]
         }
     ]
 }

@@ -55,6 +55,7 @@ void run()
     HIP_ASSERT(hipMemcpy(CPUArrayC, GPUArrayC, bytes, hipMemcpyDeviceToHost));
 
     // verify
+    bool failed = false;
     for (int i = 0; i < N; ++i)
     {
         float16_t verify = CPUArrayA[i] + CPUArrayB[i];
@@ -62,7 +63,12 @@ void run()
         {
             std::cout << "Error at [" << i << "], expected: " << static_cast<float>(verify)
                       << ", got: " << static_cast<float>(CPUArrayC[i]) << std::endl;
+            failed = true;
         }
+    }
+
+    if (!failed) {
+        std::cout << "Success" << std::endl;
     }
 
     // release device memory
