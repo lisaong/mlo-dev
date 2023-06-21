@@ -28,7 +28,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm.cu"
             }
         },
         {
@@ -43,7 +43,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm_dbuf.cu"
             }
         },
         {
@@ -58,7 +58,19 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm_wmma.cu"
+            }
+        },
+        {
+            "label": "build vector_add",
+            "type": "shell",
+            "command": "hipcc vector_add.cu -o vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "vector_add.cu"
             }
         }
     ]
