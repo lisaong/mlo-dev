@@ -9,7 +9,7 @@ __global__ void imageGamma(uint8_t *data, float gamma, int n)
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     if (i < n)
     {
-        data[i] = pow(image_data[i] / 255.0, gamma) * 255.0;
+        data[i] = pow(data[i] / 255.0, gamma) * 255.0;
     }
 }
 
@@ -27,7 +27,7 @@ uint8_t *loadImage(const char *filename, int *size)
     }
 
     uint8_t *data = new uint8_t[fileSize];
-    file.seekg(file.beg); // SEEK_SET
+    file.seekg(file.beg); // SEEK_SET to 0
     file.read(reinterpret_cast<char *>(data), fileSize);
 
     *size = fileSize;
@@ -56,7 +56,7 @@ void run(const char *inFile, const char *outFile)
     HIP_ASSERT(hipMalloc(&GPUdata, n));
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
-    imageGamma<<<gridSize, blockSize>>>(data, gamma, dataSize);
+    imageGamma<<<gridSize, blockSize>>>(CPUdata, gamma, n);
 
     HIP_ASSERT(hipMemcpy(CPUdata, GPUdata, n * sizeof(uint8_t), hipMemcpyDeviceToHost));
 

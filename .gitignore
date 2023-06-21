@@ -149,3 +149,4 @@ hip/*.db
 hip/*.json
 hip/*.stats.csv
 hip/*.sysinfo.txt
+hip/image_gamma
