@@ -130,6 +130,18 @@
             }
         },
         {
+            "label": "build debug image_gamma",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb image_gamma.cu -o image_gamma",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "image_gamma.cu"
+            }
+        },
+        {
             "label": "run image_gamma",
             "type": "shell",
             "command": "./image_gamma",
