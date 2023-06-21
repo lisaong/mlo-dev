@@ -138,4 +138,11 @@ logs/
 
 *.deb
 *.run
+
+# hip
 hip/vector_add
+hip/*.csv
+hip/*.db
+hip/*.json
+hip/*.stats.csv
+hip/*.sysinfo.txt
