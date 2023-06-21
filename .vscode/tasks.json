@@ -91,7 +91,8 @@
         {
             "label": "profile vector_add",
             "type": "shell",
-            "command": "rocprof --stats ./vector_add",
+            // "command": "rocprof --stats ./vector_add",
+            "command": "rocprof -i vector_add.txt -o vector_add_profile.csv ./vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
