@@ -64,7 +64,19 @@
         {
             "label": "build vector_add",
             "type": "shell",
-            "command": "hipcc vector_add.cu -o vector_add",
+            "command": "/opt/rocm-5.5.0/bin/hipcc vector_add.cu -o vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "vector_add.cu"
+            }
+        },
+        {
+            "label": "build debug vector_add",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb vector_add.cu -o vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -92,7 +104,7 @@
             "label": "profile vector_add",
             "type": "shell",
             // "command": "rocprof --stats ./vector_add",
-            "command": "rocprof -i vector_add.txt -o vector_add_profile.csv ./vector_add",
+            "command": "/opt/rocm-5.5.0/bin/rocprof -i vector_add.txt -o vector_add_profile.csv ./vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
