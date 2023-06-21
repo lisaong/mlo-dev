@@ -35,7 +35,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/hip/image_gamma",
-            "args": ["${workspaceFolder}/test.jpeg", "${workspaceFolder}/result.jpeg"],
+            "args": ["${workspaceFolder}/hip/test.jpeg", "${workspaceFolder}/hip/result.jpeg"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
