@@ -13,7 +13,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm.cu"
             }
         },
         {
@@ -28,7 +28,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm_smem.cu"
             }
         },
         {
@@ -43,7 +43,7 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm_dbuf.cu"
             }
         },
         {
@@ -58,8 +58,52 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": "bmm_wmma.cu"
             }
+        },
+        {
+            "label": "build vector_add",
+            "type": "shell",
+            "command": "hipcc vector_add.cu -o vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "vector_add.cu"
+            }
+        },
+        {
+            "label": "run vector_add",
+            "type": "shell",
+            "command": "./vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "vector_add.cu"
+            },
+            "dependsOn": [
+                "build vector_add"
+            ]
+        },
+        {
+            "label": "profile vector_add",
+            "type": "shell",
+            // "command": "rocprof --stats ./vector_add",
+            "command": "rocprof -i vector_add.txt -o vector_add_profile.csv ./vector_add",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": "vector_add.cu"
+            },
+            "dependsOn": [
+                "build vector_add"
+            ],
+            "problemMatcher": []
         }
     ]
 }
