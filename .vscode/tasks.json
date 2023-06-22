@@ -144,7 +144,7 @@
         {
             "label": "run image_gamma",
             "type": "shell",
-            "command": "./image_gamma test.jpeg result.jpeg",
+            "command": "./image_gamma test.jpeg result.jpeg > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_image_gamma.png",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -154,6 +154,45 @@
             },
             "dependsOn": [
                 "build image_gamma"
+            ]
+        },
+        {
+            "label": "build image_smoothing",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc image_smoothing.cu -o image_smoothing",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "image_smoothing.cu"
+            }
+        },
+        {
+            "label": "build debug image_smoothing",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb image_smoothing.cu -o image_smoothing",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "image_smoothing.cu"
+            }
+        },
+        {
+            "label": "run image_smoothing",
+            "type": "shell",
+            "command": "./image_smoothing test.jpeg result.jpeg > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_image_smoothing.png",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "image_smoothing.cu"
+            },
+            "dependsOn": [
+                "build image_smoothing"
             ]
         },
     ]

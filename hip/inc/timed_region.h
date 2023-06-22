@@ -13,8 +13,9 @@ struct TimedRegion
 {
     hipEvent_t start;
     hipEvent_t end;
+    std::string prefix;
 
-    TimedRegion()
+    TimedRegion(std::string prefix = "") : prefix(prefix)
     {
         HIP_ASSERT(hipEventCreate(&start));
         HIP_ASSERT(hipEventCreate(&end));
@@ -28,7 +29,7 @@ struct TimedRegion
 
         float millisecs = 0;
         HIP_ASSERT(hipEventElapsedTime(&millisecs, start, end));
-        std::cout << ">> Elapsed time (ms): " << millisecs << std::endl;
+        std::cout << prefix << "," << millisecs << std::endl;
 
         HIP_ASSERT(hipEventDestroy(start));
         HIP_ASSERT(hipEventDestroy(end));
