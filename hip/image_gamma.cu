@@ -1,6 +1,6 @@
 #include <hip/hip_runtime.h>
-#include <fstream>
 #include <iostream>
+#include <sstream>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "inc/stb_image.h"
@@ -40,7 +40,9 @@ int run(const char *inFile, const char *outFile, int blockSize)
 
     int n = width * height * channels;
     const int gridSize = (n + blockSize - 1) / blockSize;
-    std::cout << "Grid size: " << gridSize << ", Block size: " << blockSize << std::endl;
+
+    std::stringstream ss;
+    ss << gridSize << "," << blockSize;
 
     // initialize device memory
     uint8_t *GPUdata;
@@ -48,7 +50,7 @@ int run(const char *inFile, const char *outFile, int blockSize)
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
     {
-        TimedRegion r;
+        TimedRegion r(ss.str());
         imageGamma<<<gridSize, blockSize>>>(GPUdata, gamma, n);
         hipDeviceSynchronize();
     }
@@ -71,6 +73,9 @@ int main(int argc, const char **argv)
         return -1;
     }
 
-    constexpr int blockSize = 256;
-    run(argv[1], argv[2], blockSize);
+    // try different block sizes
+    std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
+    for (int blockSize = 32; blockSize <= 1024; blockSize += 32) {
+        run(argv[1], argv[2], blockSize);
+    }
 }
