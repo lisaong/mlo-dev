@@ -144,7 +144,7 @@
         {
             "label": "run image_gamma",
             "type": "shell",
-            "command": "./image_gamma test.jpeg result.jpeg",
+            "command": "./image_gamma test.jpeg result.jpeg > result.csv; python plot.py plot result.csv block_size elapsed_msec result_plot.png",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
