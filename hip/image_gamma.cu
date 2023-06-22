@@ -2,12 +2,7 @@
 #include <iostream>
 #include <sstream>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "inc/stb_image.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "inc/stb_image_write.h"
-
+#include "inc/image.h"
 #include "inc/timed_region.h"
 
 // cf. https://gitlab.com/syifan/hipbookexample/-/blob/main/Chapter5/ImageGamma/main.cpp
@@ -41,16 +36,16 @@ int run(const char *inFile, const char *outFile, int blockSize)
     int n = width * height * channels;
     const int gridSize = (n + blockSize - 1) / blockSize;
 
-    std::stringstream ss;
-    ss << gridSize << "," << blockSize;
-
     // initialize device memory
     uint8_t *GPUdata;
     HIP_ASSERT(hipMalloc(&GPUdata, n));
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
     {
+        std::stringstream ss;
+        ss << gridSize << "," << blockSize;
         TimedRegion r(ss.str());
+
         imageGamma<<<gridSize, blockSize>>>(GPUdata, gamma, n);
         hipDeviceSynchronize();
     }

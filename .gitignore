@@ -143,11 +143,12 @@ logs/
 settings.json
 
 # hip
-hip/vector_add
 hip/*.csv
 hip/*.db
 hip/*.json
 hip/*.stats.csv
 hip/*.sysinfo.txt
 hip/image_gamma
+hip/image_smoothing
 hip/result*.*
+hip/vector_add
