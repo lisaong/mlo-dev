@@ -144,7 +144,7 @@
         {
             "label": "run image_gamma",
             "type": "shell",
-            "command": "./image_gamma",
+            "command": "./image_gamma test.jpeg result.jpeg",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },

@@ -25,9 +25,8 @@ __global__ void imageGamma(uint8_t *data, float gamma, int n)
     }
 }
 
-int run(const char *inFile, const char *outFile)
+int run(const char *inFile, const char *outFile, int blockSize)
 {
-    constexpr int blockSize = 256;
     constexpr float gamma = 4.0;
 
     // load image from file
@@ -41,6 +40,7 @@ int run(const char *inFile, const char *outFile)
 
     int n = width * height * channels;
     const int gridSize = (n + blockSize - 1) / blockSize;
+    std::cout << "Grid size: " << gridSize << ", Block size: " << blockSize << std::endl;
 
     // initialize device memory
     uint8_t *GPUdata;
@@ -70,5 +70,7 @@ int main(int argc, const char **argv)
         std::cout << "Usage: " << argv[0] << " input_file output_file" << std::endl;
         return -1;
     }
-    return run(argv[1], argv[2]);
+
+    constexpr int blockSize = 256;
+    run(argv[1], argv[2], blockSize);
 }

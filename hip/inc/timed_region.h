@@ -28,7 +28,7 @@ struct TimedRegion
 
         float millisecs = 0;
         HIP_ASSERT(hipEventElapsedTime(&millisecs, start, end));
-        std::cout << " >> Elapsed time (ms): " << millisecs << std::endl;
+        std::cout << ">> Elapsed time (ms): " << millisecs << std::endl;
 
         HIP_ASSERT(hipEventDestroy(start));
         HIP_ASSERT(hipEventDestroy(end));
