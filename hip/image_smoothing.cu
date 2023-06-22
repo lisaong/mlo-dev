@@ -7,17 +7,42 @@
 #include "inc/image.h"
 #include "inc/timed_region.h"
 
-
 #ifndef HIP_ASSERT
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
 #endif
 
-
 __global__ void conv2d(uint8_t *image, float *mask, int width, int height, int maskWidth, int maskHeight)
 {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
 
+    if (x > width || y > height)
+        return;
+
+    float sum = 0;
+    for (int i = 0; i < maskWidth; ++i)
+    {
+        for (int j = 0; j < maskHeight; ++j)
+        {
+            // calculate the pixel coordinate relative to image
+            int imageX = x + i - maskWidth / 2;
+            int imageY = y + j - maskHeight / 2;
+
+            // bounds check
+            if (imageX < 0 || imageX >= width || imageY < 0 || imageY >= height)
+                continue;
+
+            // accumulate the pixel value
+            int imageIndex = imageY * width + imageX;
+            int maskIndex = j * maskWidth + i;
+            sum += image[imageIndex] / 255.0f * mask[maskIndex];
+        }
+    }
+
+    // replace with the summed value
+    int imageIndex = y * width + x;
+    image[imageIndex] = sum * 255;
 }
-
 
 int run(const char *inFile, const char *outFile, uint32_t blockSize)
 {
@@ -30,8 +55,10 @@ int run(const char *inFile, const char *outFile, uint32_t blockSize)
         return -1;
     }
 
-    constexpr int maskWidth = 200;
-    constexpr int maskHeight = 200;
+    // initialize a normalized box filter
+    // cf. https://docs.opencv.org/4.x/d4/d13/tutorial_py_filtering.html
+    constexpr int maskWidth = 50;
+    constexpr int maskHeight = 50;
     std::vector<float> mask(maskWidth * maskHeight * channels);
     for (int i = 0; i < mask.size(); ++i)
     {
