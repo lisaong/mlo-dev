@@ -42,7 +42,7 @@ int run(const char *inFile, const char *outFile)
     HIP_ASSERT(hipMalloc(&GPUdata, n));
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
-    imageGamma<<<gridSize, blockSize>>>(CPUdata, gamma, n);
+    imageGamma<<<gridSize, blockSize>>>(GPUdata, gamma, n);
     hipDeviceSynchronize();
 
     HIP_ASSERT(hipMemcpy(CPUdata, GPUdata, n * sizeof(uint8_t), hipMemcpyDeviceToHost));
