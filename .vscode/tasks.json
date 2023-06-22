@@ -104,7 +104,7 @@
             "label": "profile vector_add",
             "type": "shell",
             // "command": "rocprof --stats ./vector_add",
-            "command": "/opt/rocm-5.5.0/bin/rocprof -i vector_add.txt -o vector_add_profile.csv ./vector_add",
+            "command": "/opt/rocm-5.5.0/bin/rocprof -i counters.txt -o vector_add_profile.csv ./vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -116,6 +116,45 @@
                 "build vector_add"
             ],
             "problemMatcher": []
-        }
+        },
+        {
+            "label": "build image_gamma",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc image_gamma.cu -o image_gamma",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "image_gamma.cu"
+            }
+        },
+        {
+            "label": "build debug image_gamma",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb image_gamma.cu -o image_gamma",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "image_gamma.cu"
+            }
+        },
+        {
+            "label": "run image_gamma",
+            "type": "shell",
+            "command": "./image_gamma",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "image_gamma.cu"
+            },
+            "dependsOn": [
+                "build image_gamma"
+            ]
+        },
     ]
 }

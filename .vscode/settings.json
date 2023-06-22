@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "*.hat": "c",
-        "ostream": "cpp",
-        "*.tcc": "cpp",
-        "streambuf": "cpp",
-        "barrier": "cpp"
-    }
-}
