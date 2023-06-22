@@ -8,9 +8,13 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "inc/stb_image_write.h"
 
+#include "inc/timed_region.h"
+
 // cf. https://gitlab.com/syifan/hipbookexample/-/blob/main/Chapter5/ImageGamma/main.cpp
 
+#ifndef HIP_ASSERT
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
+#endif
 
 __global__ void imageGamma(uint8_t *data, float gamma, int n)
 {
@@ -28,8 +32,9 @@ int run(const char *inFile, const char *outFile)
 
     // load image from file
     int width, height, channels;
-    uint8_t* CPUdata = stbi_load(inFile, &width, &height, &channels, /*reg_comp*/0);
-    if (CPUdata == nullptr) {
+    uint8_t *CPUdata = stbi_load(inFile, &width, &height, &channels, /*reg_comp*/ 0);
+    if (CPUdata == nullptr)
+    {
         std::cout << "Failed to load image from " << inFile << std::endl;
         return -1;
     }
@@ -42,13 +47,16 @@ int run(const char *inFile, const char *outFile)
     HIP_ASSERT(hipMalloc(&GPUdata, n));
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
-    imageGamma<<<gridSize, blockSize>>>(GPUdata, gamma, n);
-    hipDeviceSynchronize();
+    {
+        TimedRegion r;
+        imageGamma<<<gridSize, blockSize>>>(GPUdata, gamma, n);
+        hipDeviceSynchronize();
+    }
 
     HIP_ASSERT(hipMemcpy(CPUdata, GPUdata, n * sizeof(uint8_t), hipMemcpyDeviceToHost));
 
     // save image to result file
-    stbi_write_jpg(outFile, width, height, channels, CPUdata, /*quality*/100);
+    stbi_write_jpg(outFile, width, height, channels, CPUdata, /*quality*/ 100);
 
     HIP_ASSERT(hipFree(GPUdata));
     stbi_image_free(CPUdata);
