@@ -2,6 +2,14 @@
 #include <fstream>
 #include <iostream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "inc/stb_image.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "inc/stb_image_write.h"
+
+// cf. https://gitlab.com/syifan/hipbookexample/-/blob/main/Chapter5/ImageGamma/main.cpp
+
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
 
 __global__ void imageGamma(uint8_t *data, float gamma, int n)
@@ -13,42 +21,20 @@ __global__ void imageGamma(uint8_t *data, float gamma, int n)
     }
 }
 
-uint8_t *loadImage(const char *filename, int *size)
-{
-    *size = 0;
-
-    std::ifstream file;
-    file.open(filename, std::ios::in | std::ios::binary | std::ios::ate);
-    const int fileSize = file.tellg(); // std::ios::ate does a SEEK_END
-
-    if (fileSize < 0)
-    {
-        throw std::runtime_error("Unexpected file size");
-    }
-
-    uint8_t *data = new uint8_t[fileSize];
-    file.seekg(file.beg); // SEEK_SET to 0
-    file.read(reinterpret_cast<char *>(data), fileSize);
-
-    *size = fileSize;
-    return data;
-}
-
-void saveImage(const uint8_t *data, int size, const char *filename)
-{
-    std::ofstream file;
-    file.open(filename, std::ios::out | std::ios::binary);
-    file.write(reinterpret_cast<const char *>(data), size);
-}
-
-void run(const char *inFile, const char *outFile)
+int run(const char *inFile, const char *outFile)
 {
     constexpr int blockSize = 256;
     constexpr float gamma = 4.0;
 
     // load image from file
-    int n;
-    uint8_t *CPUdata = loadImage(inFile, &n);
+    int width, height, channels;
+    uint8_t* CPUdata = stbi_load(inFile, &width, &height, &channels, /*reg_comp*/0);
+    if (CPUdata == nullptr) {
+        std::cout << "Failed to load image from " << inFile << std::endl;
+        return -1;
+    }
+
+    int n = width * height * channels;
     const int gridSize = (n + blockSize - 1) / blockSize;
 
     // initialize device memory
@@ -57,14 +43,16 @@ void run(const char *inFile, const char *outFile)
     HIP_ASSERT(hipMemcpy(GPUdata, CPUdata, n * sizeof(uint8_t), hipMemcpyHostToDevice));
 
     imageGamma<<<gridSize, blockSize>>>(CPUdata, gamma, n);
+    hipDeviceSynchronize();
 
     HIP_ASSERT(hipMemcpy(CPUdata, GPUdata, n * sizeof(uint8_t), hipMemcpyDeviceToHost));
 
     // save image to result file
-    saveImage(CPUdata, n, outFile);
+    stbi_write_jpg(outFile, width, height, channels, CPUdata, /*quality*/100);
 
     HIP_ASSERT(hipFree(GPUdata));
-    delete[] CPUdata;
+    stbi_image_free(CPUdata);
+    return 0;
 }
 
 int main(int argc, const char **argv)
@@ -74,6 +62,5 @@ int main(int argc, const char **argv)
         std::cout << "Usage: " << argv[0] << " input_file output_file" << std::endl;
         return -1;
     }
-    run(argv[1], argv[2]);
-    return 0;
+    return run(argv[1], argv[2]);
 }
