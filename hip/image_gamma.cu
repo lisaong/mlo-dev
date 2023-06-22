@@ -75,7 +75,10 @@ int main(int argc, const char **argv)
 
     // try different block sizes
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
-    for (int blockSize = 32; blockSize <= 1024; blockSize += 32) {
-        run(argv[1], argv[2], blockSize);
+    int result = 0;
+    for (int blockSize = 32; blockSize <= 1024 && result == 0; blockSize += 32)
+    {
+        result = run(argv[1], argv[2], blockSize);
     }
+    return result;
 }
