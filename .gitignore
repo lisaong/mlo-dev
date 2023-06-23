@@ -150,5 +150,6 @@ hip/*.stats.csv
 hip/*.sysinfo.txt
 hip/image_gamma
 hip/image_smoothing
+hip/reduce_sum
 hip/result*.*
 hip/vector_add

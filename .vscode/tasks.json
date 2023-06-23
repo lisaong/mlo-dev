@@ -195,5 +195,44 @@
                 "build image_smoothing"
             ]
         },
+        {
+            "label": "build reduce_sum",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc reduce_sum.cu -o reduce_sum",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "reduce_sum.cu"
+            }
+        },
+        {
+            "label": "build debug reduce_sum",
+            "type": "shell",
+            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb reduce_sum.cu -o reduce_sum",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "reduce_sum.cu"
+            }
+        },
+        {
+            "label": "run reduce_sum",
+            "type": "shell",
+            "command": "./reduce_sum > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_reduce_sum.png",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "reduce_sum.cu"
+            },
+            "dependsOn": [
+                "build reduce_sum"
+            ]
+        },
     ]
 }
