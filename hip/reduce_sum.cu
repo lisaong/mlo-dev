@@ -18,6 +18,52 @@ __global__ void sum(float16_t *input, float_t *output, int n)
     const int gridSize = blockDim.x * gridDim.x;
 
     // parallel local sum
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    float sum = 0;
+    for (; i < n; i += gridSize)
+    {
+        sum += input[i];
+    }
+    localSum[threadIdx.x] = sum;
+    __syncthreads();
+
+    // reduction:
+    //  s = 128
+    //  localSum[0] += localSum[128]
+    //  localSum[1] += localSum[129]
+    //  ...
+    //  localSum[127] += localSum[255]
+    //  __syncthreads()
+    //
+    //  s = 64
+    //  localSum[0] += localSum[64]
+    //  localSum[1] += localSum[65]
+    //  ...
+    //  localSum[63] += localSum[127]
+    //  __syncthreads()
+    //
+    //  s = 32
+    //  localSum[0] += localSum[32]
+    //  localSum[1] += localSum[33]
+    //  ...
+    //  localSum[31] += localSum[63]
+    //  __syncthreads()
+    //  etc
+
+    for (int s = blockDim.x / 2; s > 0; s /= 2)
+    {
+        if (threadIdx.x < s)
+        {
+            localSum[threadIdx.x] += localSum[threadIdx.x + s];
+        }
+        __syncthreads();
+    }
+
+    // write the per-block sum
+    if (threadIdx.x == 0)
+    {
+        output[blockIdx.x] = localSum[0];
+    }
 }
 
 int run(int numBlocks)
@@ -28,7 +74,7 @@ int run(int numBlocks)
 
     std::vector<float16_t> a(N);
     std::vector<float> b(numBlocks);
-    std::fill(a.begin(), a.end(), static_cast<float>(rand() - RAND_MAX / 2) / static_cast<float>(RAND_MAX));
+    std::fill(a.begin(), a.end(), 1.0f);
 
     float16_t *d_a;
     float *d_b;
