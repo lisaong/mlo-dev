@@ -222,7 +222,7 @@
         {
             "label": "run reduce_sum",
             "type": "shell",
-            "command": "./reduce_sum > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_reduce_sum.png",
+            "command": "./reduce_sum > result.csv; ${command:python.interpreterPath} plot.py plot result.csv grid_size elapsed_msec result_reduce_sum.png",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
