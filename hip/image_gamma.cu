@@ -13,16 +13,20 @@
 
 __global__ void imageGamma(uint8_t *data, float gamma, int n)
 {
+    const int stride = blockDim.x * gridDim.x;
     int i = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i < n)
+    for (; i < n; i += stride)
     {
-        data[i] = pow(data[i] / 255.0, gamma) * 255.0;
+        float value = data[i] / 255.0f;
+        value = pow(value, gamma);
+        data[i] = static_cast<uint8_t>(value * 255.0f);
     }
 }
 
-int run(const char *inFile, const char *outFile, int blockSize)
+int run(const char *inFile, const char *outFile, int gridSize)
 {
     constexpr float gamma = 4.0;
+    constexpr int blockSize = 256;
 
     // load image from file
     int width, height, channels;
@@ -33,8 +37,7 @@ int run(const char *inFile, const char *outFile, int blockSize)
         return -1;
     }
 
-    int n = width * height * channels;
-    const int gridSize = (n + blockSize - 1) / blockSize;
+    const int n = width * height * channels;
 
     // initialize device memory
     uint8_t *GPUdata;
@@ -71,9 +74,9 @@ int main(int argc, const char **argv)
     // try different block sizes
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int blockSize = 32; blockSize <= 1024 && result == 0; blockSize += 32)
+    for (int gridSize = 32; gridSize <= 2048 && result == 0; gridSize += 32)
     {
-        result = run(argv[1], argv[2], blockSize);
+        result = run(argv[1], argv[2], gridSize);
     }
     return result;
 }
