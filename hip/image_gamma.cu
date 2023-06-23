@@ -71,10 +71,13 @@ int main(int argc, const char **argv)
         return -1;
     }
 
-    // try different block sizes
+    // try different grid (workgroup) sizes
+    // for an MI50, with 60 CUs x 40 wavefronts,
+    // we should see performance peak at 2400 wavefronts (or 600 workgroups)
+    // (256 / 64 = 4 wavefronts per workgroup)
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int gridSize = 32; gridSize <= 2048 && result == 0; gridSize += 32)
+    for (int gridSize = 32; gridSize <= 700 && result == 0; gridSize += 32)
     {
         result = run(argv[1], argv[2], gridSize);
     }

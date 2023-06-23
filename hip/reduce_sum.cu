@@ -1,0 +1,128 @@
+#include <hip/hip_runtime.h>
+#include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <vector>
+
+#include "inc/timed_region.h"
+
+using float16_t = _Float16;
+
+#ifndef HIP_ASSERT
+#define HIP_ASSERT(x) (assert((x) == hipSuccess))
+#endif
+
+__global__ void sum(float16_t *input, float_t *output, int n)
+{
+    extern __shared__ float localSum[];
+    const int gridSize = blockDim.x * gridDim.x;
+
+    // parallel local sum
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    float sum = 0;
+    for (; i < n; i += gridSize)
+    {
+        sum += input[i];
+    }
+    localSum[threadIdx.x] = sum;
+    __syncthreads();
+
+    // reduction:
+    //  s = 128
+    //  localSum[0] += localSum[128]
+    //  localSum[1] += localSum[129]
+    //  ...
+    //  localSum[127] += localSum[255]
+    //  __syncthreads()
+    //
+    //  s = 64
+    //  localSum[0] += localSum[64]
+    //  localSum[1] += localSum[65]
+    //  ...
+    //  localSum[63] += localSum[127]
+    //  __syncthreads()
+    //
+    //  s = 32
+    //  localSum[0] += localSum[32]
+    //  localSum[1] += localSum[33]
+    //  ...
+    //  localSum[31] += localSum[63]
+    //  __syncthreads()
+    //  etc
+
+    for (int s = blockDim.x / 2; s > 0; s /= 2)
+    {
+        if (threadIdx.x < s)
+        {
+            localSum[threadIdx.x] += localSum[threadIdx.x + s];
+        }
+        __syncthreads();
+    }
+
+    // write the per-block sum
+    if (threadIdx.x == 0)
+    {
+        output[blockIdx.x] = localSum[0];
+    }
+}
+
+int run(int numBlocks)
+{
+    constexpr int numThreads = 256;
+    constexpr int N = 10485760;
+    constexpr int sharedMemorySize = numThreads * sizeof(float);
+
+    std::vector<float16_t> a(N);
+    std::vector<float> b(numBlocks);
+    std::fill(a.begin(), a.end(), 1.0f);
+
+    float16_t *d_a;
+    float *d_b;
+    HIP_ASSERT(hipMalloc(&d_a, a.size() * sizeof(float16_t)));
+    HIP_ASSERT(hipMalloc(&d_b, b.size() * sizeof(float)));
+    HIP_ASSERT(hipMemcpy(d_a, a.data(), a.size() * sizeof(float16_t), hipMemcpyHostToDevice));
+
+    {
+        std::stringstream ss;
+        ss << numBlocks << "," << numThreads;
+
+        TimedRegion r(ss.str());
+        sum<<<numBlocks, numThreads, sharedMemorySize, 0>>>(d_a, d_b, N);
+        hipDeviceSynchronize();
+    }
+
+    HIP_ASSERT(hipMemcpy(b.data(), d_b, b.size() * sizeof(float), hipMemcpyDeviceToHost));
+
+    // Finalize the sum
+    float sum = 0.0f;
+    for (int i = 0; i < numBlocks; ++i)
+    {
+        sum += b[i];
+    }
+
+    // Verify
+    float expectedSum = 0.0f;
+    for (int i = 0; i < a.size(); ++i)
+    {
+        expectedSum += a[i];
+    }
+
+    if (abs(sum - expectedSum) > 1e-5)
+    {
+        std::cout << "Error: sum " << sum << ", expected sum " << expectedSum << std::endl;
+        return -1;
+    }
+
+    return 0;
+}
+
+int main(int argc, const char **argv)
+{
+    std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
+    int result = 0;
+    for (int numBlocks = 32; numBlocks <= 700 && result == 0; numBlocks += 32)
+    {
+        result = run(numBlocks);
+    }
+    return result;
+}
