@@ -14,12 +14,17 @@ using float16_t = _Float16;
 
 __global__ void sum(float16_t *input, float_t *output, int n)
 {
+    extern __shared__ float localSum[];
+    const int gridSize = blockDim.x * gridDim.x;
+
+    // parallel local sum
 }
 
 int run(int numBlocks)
 {
     constexpr int numThreads = 256;
     constexpr int N = 10485760;
+    constexpr int sharedMemorySize = numThreads * sizeof(float);
 
     std::vector<float16_t> a(N);
     std::vector<float> b(numBlocks);
@@ -36,7 +41,7 @@ int run(int numBlocks)
         ss << numBlocks << "," << numThreads;
 
         TimedRegion r(ss.str());
-        sum<<<numBlocks, numThreads>>>(d_a, d_b, N);
+        sum<<<numBlocks, numThreads, sharedMemorySize, 0>>>(d_a, d_b, N);
         hipDeviceSynchronize();
     }
 
