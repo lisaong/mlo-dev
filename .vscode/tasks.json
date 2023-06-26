@@ -64,7 +64,7 @@
         {
             "label": "build vector_add",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc vector_add.cu -o vector_add",
+            "command": "/opt/rocm/bin/hipcc vector_add.cu -o vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -76,7 +76,7 @@
         {
             "label": "build debug vector_add",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb vector_add.cu -o vector_add",
+            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb vector_add.cu -o vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -104,9 +104,12 @@
             "label": "profile vector_add",
             "type": "shell",
             // "command": "rocprof --stats ./vector_add",
-            "command": "/opt/rocm-5.5.0/bin/rocprof -i counters.txt -o vector_add_profile.csv ./vector_add",
+            "command": "/opt/rocm/bin/rocprof -i counters.txt -o vector_add_profile.csv ./vector_add",
             "options": {
-                "cwd": "${workspaceFolder}/hip"
+                "cwd": "${workspaceFolder}/hip",
+                "env": {
+                    "PATH": "${PATH}:/opt/rocm/bin"
+                }
             },
             "group": {
                 "kind": "none",
@@ -120,7 +123,7 @@
         {
             "label": "build image_gamma",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc image_gamma.cu -o image_gamma",
+            "command": "/opt/rocm/bin/hipcc image_gamma.cu -o image_gamma",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -132,7 +135,7 @@
         {
             "label": "build debug image_gamma",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb image_gamma.cu -o image_gamma",
+            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb image_gamma.cu -o image_gamma",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -159,7 +162,7 @@
         {
             "label": "build image_smoothing",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc image_smoothing.cu -o image_smoothing",
+            "command": "/opt/rocm/bin/hipcc image_smoothing.cu -o image_smoothing",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -171,7 +174,7 @@
         {
             "label": "build debug image_smoothing",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb image_smoothing.cu -o image_smoothing",
+            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb image_smoothing.cu -o image_smoothing",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -198,7 +201,7 @@
         {
             "label": "build reduce_sum",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc reduce_sum.cu -o reduce_sum",
+            "command": "/opt/rocm/bin/hipcc reduce_sum.cu -o reduce_sum",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -210,7 +213,7 @@
         {
             "label": "build debug reduce_sum",
             "type": "shell",
-            "command": "/opt/rocm-5.5.0/bin/hipcc -O0 -g -ggdb reduce_sum.cu -o reduce_sum",
+            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb reduce_sum.cu -o reduce_sum",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -233,6 +236,80 @@
             "dependsOn": [
                 "build reduce_sum"
             ]
+        },
+        {
+            "label": "profile reduce_sum",
+            "type": "shell",
+            // to load the trace, got to https://ui.perfetto.dev, Open with Legacy UI
+            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./reduce_sum",
+            // "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --timestamp on --basenames off -i counters.txt ./reduce_sum",
+            "options": {
+                "cwd": "${workspaceFolder}/hip",
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": "reduce_sum.cu"
+            },
+            "dependsOn": [
+                "build reduce_sum"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build tiled_mm",
+            "type": "shell",
+            "command": "/opt/rocm/bin/hipcc tiled_mm.cu -o tiled_mm",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "tiled_mm.cu"
+            }
+        },
+        {
+            "label": "build debug tiled_mm",
+            "type": "shell",
+            "command": "/opt/rocm/bin/hipcc -DVERIFY -O0 -g -ggdb tiled_mm.cu -o tiled_mm",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "tiled_mm.cu"
+            }
+        },
+        {
+            "label": "run tiled_mm",
+            "type": "shell",
+            // "command": "./tiled_mm",
+            "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_tiled_mm.png",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "tiled_mm.cu"
+            },
+            "dependsOn": [
+                "build tiled_mm"
+            ]
+        },
+        {
+            "label": "profile tiled_mm",
+            "type": "shell",
+            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./tiled_mm 1",
+            "options": {
+                "cwd": "${workspaceFolder}/hip",
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": "tiled_mm.cu"
+            },
+            "dependsOn": [
+                "build tiled_mm"
+            ],
+            "problemMatcher": []
         },
     ]
 }

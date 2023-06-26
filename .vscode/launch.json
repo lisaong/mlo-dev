@@ -15,7 +15,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -44,7 +44,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -73,7 +73,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -99,7 +99,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -113,6 +113,34 @@
                 }
             ],
             "preLaunchTask": "build debug reduce_sum"
+        },
+        {
+            "name": "(rocgdb) tiled_mm",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/hip/tiled_mm",
+            "args": [
+                "1"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build debug tiled_mm"
         },
         {
             "name": "Python: Current File",
