@@ -145,7 +145,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int numBlocks = 32; numBlocks <= 1400 && result == 0; numBlocks += 32)
+    for (int numBlocks = 32; numBlocks <= 2048 && result == 0; numBlocks += 32)
     {
         result = run(deviceId, numBlocks);
     }
