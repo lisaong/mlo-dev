@@ -90,6 +90,7 @@ int run(int deviceId, int numBlocks)
     HIP_ASSERT(hipMemPrefetchAsync(d_b, numBlocks * sizeof(float), deviceId));
 
     init<<<numBlocks, numThreads>>>(d_a, N);
+    hipDeviceSynchronize();
 
     {
         std::stringstream ss;

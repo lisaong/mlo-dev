@@ -283,7 +283,7 @@
             "label": "run tiled_mm",
             "type": "shell",
             "command": "./tiled_mm",
-            // "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv grid_size elapsed_msec result_tiled_mm.png",
+            // "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_tiled_mm.png",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -298,7 +298,7 @@
         {
             "label": "profile tiled_mm",
             "type": "shell",
-            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./tiled_mm",
+            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./tiled_mm 1",
             "options": {
                 "cwd": "${workspaceFolder}/hip",
             },

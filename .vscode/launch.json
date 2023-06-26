@@ -119,7 +119,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/hip/tiled_mm",
-            "args": [],
+            "args": [
+                "0"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
