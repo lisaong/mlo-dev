@@ -23,11 +23,14 @@ enum class Strategy
 template <typename T>
 __global__ void init(T *a, uint64_t M, uint64_t N)
 {
-    const int i = blockDim.y * blockIdx.y + threadIdx.y;
-    const int j = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i < M && j < N)
+    int i = blockDim.y * blockIdx.y + threadIdx.y;
+    int j = blockDim.x * blockIdx.x + threadIdx.x;
+    for (; i < M; i += blockDim.y * gridDim.y)
     {
-        a[i * N + j] = static_cast<T>(i * N + j) / static_cast<T>(N * M / 4);
+        for (; j < N; j += blockDim.x * gridDim.x)
+        {
+            a[i * N + j] = static_cast<T>(i * N + j) / static_cast<T>(N * M / 4);
+        }
     }
 }
 
@@ -155,7 +158,7 @@ int run(int deviceId, int tileSize, Strategy strategy)
 #ifdef VERIFY
     constexpr uint64_t M = 64;
 #else
-    constexpr uint64_t M = 2 << 16;
+    constexpr uint64_t M = 2 << 12;
 #endif // VERIFY
     constexpr uint64_t N = M;
     constexpr uint64_t K = M;
