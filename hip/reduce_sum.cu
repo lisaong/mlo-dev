@@ -73,13 +73,12 @@ int run(int numBlocks)
     constexpr int sharedMemorySize = numThreads * sizeof(float);
 
     std::vector<float16_t> a(N);
-    std::vector<float> b(numBlocks);
     std::fill(a.begin(), a.end(), 1.0f);
 
     float16_t *d_a;
     float *d_b;
     HIP_ASSERT(hipMalloc(&d_a, a.size() * sizeof(float16_t)));
-    HIP_ASSERT(hipMalloc(&d_b, b.size() * sizeof(float)));
+    HIP_ASSERT(hipMallocManaged(&d_b, numBlocks * sizeof(float)));
     HIP_ASSERT(hipMemcpy(d_a, a.data(), a.size() * sizeof(float16_t), hipMemcpyHostToDevice));
 
     {
@@ -91,13 +90,11 @@ int run(int numBlocks)
         hipDeviceSynchronize();
     }
 
-    HIP_ASSERT(hipMemcpy(b.data(), d_b, b.size() * sizeof(float), hipMemcpyDeviceToHost));
-
     // Finalize the sum
     float sum = 0.0f;
     for (int i = 0; i < numBlocks; ++i)
     {
-        sum += b[i];
+        sum += d_b[i];
     }
 
     // Verify
@@ -113,14 +110,30 @@ int run(int numBlocks)
         return -1;
     }
 
+    HIP_ASSERT(hipFree(d_a));
+    HIP_ASSERT(hipFree(d_b));
+
     return 0;
 }
 
 int main(int argc, const char **argv)
 {
+    int deviceId = 0;
+    HIP_ASSERT(hipGetDevice(&deviceId));
+
+    int supportsManagedMemory = 0;
+    HIP_ASSERT(hipDeviceGetAttribute(&supportsManagedMemory,
+                                     hipDeviceAttributeManagedMemory, deviceId));
+
+    if (supportsManagedMemory == 0)
+    {
+        std::cout << "Managed memory is not supported for device " << deviceId << std::endl;
+        return -1;
+    }
+
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int numBlocks = 32; numBlocks <= 700 && result == 0; numBlocks += 32)
+    for (int numBlocks = 32; numBlocks <= 1400 && result == 0; numBlocks += 32)
     {
         result = run(numBlocks);
     }
