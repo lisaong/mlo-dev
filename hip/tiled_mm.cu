@@ -158,7 +158,7 @@ int run(int deviceId, int tileSize, Strategy strategy)
 #ifdef VERIFY
     constexpr uint64_t M = 64;
 #else
-    constexpr uint64_t M = 2 << 12;
+    constexpr uint64_t M = 2 << 14;
 #endif // VERIFY
     constexpr uint64_t N = M;
     constexpr uint64_t K = M;
@@ -256,7 +256,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int numThreads = 32; numThreads <= 2500 && result == 0; numThreads += 32)
+    for (int numThreads = 256; numThreads <= 2500 && result == 0; numThreads += 32)
     {
         result = run(deviceId, numThreads, strategy);
     }
