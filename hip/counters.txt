@@ -1,4 +1,6 @@
-pmc:TCC_EA_RDREQ_sum,TCC_EA_WRREQ_sum
+pmc : Wavefronts VALUInsts VFetchInsts VWriteInsts VALUUtilization VALUBusy WriteSize
+pmc : SALUInsts SFetchInsts GDSInsts SALUBusy FetchSize
+pmc : MemUnitBusy MemUnitStalled ALUStalledByLDS
 range: 0:1
 gpu: 0
 kernel: vectorAdd,imageGamma,reduceSum

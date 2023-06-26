@@ -240,12 +240,11 @@
         {
             "label": "profile reduce_sum",
             "type": "shell",
-            "command": "/opt/rocm/bin/rocprof --hiptrace ./reduce_sum",
+            // to load the trace, got to https://ui.perfetto.dev, Open with Legacy UI
+            // "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./reduce_sum",
+            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --timestamp on --basenames off -i counters.txt ./reduce_sum",
             "options": {
                 "cwd": "${workspaceFolder}/hip",
-                "env": {
-                    "PATH": "${PATH}:/opt/rocm/bin"
-                }
             },
             "group": {
                 "kind": "none",
