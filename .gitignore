@@ -153,4 +153,5 @@ hip/image_gamma
 hip/image_smoothing
 hip/reduce_sum
 hip/result*.*
+hip/tiled_mm
 hip/vector_add
