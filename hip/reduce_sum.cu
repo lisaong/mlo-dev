@@ -12,6 +12,17 @@ using float16_t = _Float16;
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
 #endif
 
+template<typename T>
+__global__ void init(T *a, int n)
+{
+    const int stride = blockDim.x * gridDim.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    for (; i < n; i += stride)
+    {
+        a[i] = static_cast<T>(i) / static_cast<T>(1024);
+    }
+}
+
 __global__ void sum(float16_t *input, float_t *output, int n)
 {
     extern __shared__ float localSum[];
