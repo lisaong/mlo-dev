@@ -12,7 +12,7 @@ using float16_t = _Float16;
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
 #endif
 
-template<typename T>
+template <typename T>
 __global__ void init(T *a, int n)
 {
     const int stride = blockDim.x * gridDim.x;
@@ -77,20 +77,21 @@ __global__ void reduceSum(float16_t *input, float_t *output, int n)
     }
 }
 
-int run(int numBlocks)
+int run(int deviceId, int numBlocks)
 {
     constexpr int numThreads = 256;
     constexpr int N = 10485760;
     constexpr int sharedMemorySize = numThreads * sizeof(float);
 
-    std::vector<float16_t> a(N);
-    std::fill(a.begin(), a.end(), 1.0f);
-
     float16_t *d_a;
     float *d_b;
-    HIP_ASSERT(hipMalloc(&d_a, a.size() * sizeof(float16_t)));
+    HIP_ASSERT(hipMallocManaged(&d_a, N * sizeof(float16_t)));
     HIP_ASSERT(hipMallocManaged(&d_b, numBlocks * sizeof(float)));
-    HIP_ASSERT(hipMemcpy(d_a, a.data(), a.size() * sizeof(float16_t), hipMemcpyHostToDevice));
+
+    HIP_ASSERT(hipMemPrefetchAsync(d_a, N * sizeof(float16_t), deviceId));
+    HIP_ASSERT(hipMemPrefetchAsync(d_b, numBlocks * sizeof(float), deviceId));
+
+    init<<<numBlocks, numThreads>>>(d_a, N);
 
     {
         std::stringstream ss;
@@ -110,9 +111,9 @@ int run(int numBlocks)
 
     // Verify
     float expectedSum = 0.0f;
-    for (int i = 0; i < a.size(); ++i)
+    for (int i = 0; i < N; ++i)
     {
-        expectedSum += a[i];
+        expectedSum += d_a[i];
     }
 
     if (abs(sum - expectedSum) > 1e-5)
@@ -146,7 +147,7 @@ int main(int argc, const char **argv)
     int result = 0;
     for (int numBlocks = 32; numBlocks <= 1400 && result == 0; numBlocks += 32)
     {
-        result = run(numBlocks);
+        result = run(deviceId, numBlocks);
     }
     return result;
 }
