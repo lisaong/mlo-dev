@@ -282,8 +282,7 @@
         {
             "label": "run tiled_mm",
             "type": "shell",
-            "command": "./tiled_mm",
-            // "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_tiled_mm.png",
+            "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv block_size elapsed_msec result_tiled_mm.png",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },

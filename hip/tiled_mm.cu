@@ -6,6 +6,8 @@
 
 using float16_t = _Float16;
 
+#include "inc/ulp.h"
+
 #ifndef HIP_ASSERT
 #define HIP_ASSERT(x) (assert((x) == hipSuccess))
 #endif
@@ -205,14 +207,13 @@ int run(int deviceId, int tileSize, Strategy strategy)
         {
             for (int j = 0; j < N; ++j)
             {
-                // std::cout << d_c[i * N + j] << ", expected "
-                //           << cVerify[i * N + j] << std::endl;
-
-                if (abs(d_c[i * N + j] - cVerify[i * N + j]) > 1e-5)
+                auto ulpDiff = ULPDiff(d_c[i * N + j], cVerify[i * N + j]);
+                if (ulpDiff > 1e4)
                 {
                     std::cout << "Error: C[" << i << ", " << j << "] = "
                               << d_c[i * N + j] << ", expected "
-                              << cVerify[i * N + j] << std::endl;
+                              << cVerify[i * N + j] << ", ulpdiff "
+                              << ulpDiff << std::endl;
                     return -1;
                 }
             }
