@@ -1,8 +1,6 @@
 #include <hip/hip_runtime.h>
-#include <algorithm>
 #include <iostream>
 #include <sstream>
-#include <vector>
 
 #include "inc/timed_region.h"
 

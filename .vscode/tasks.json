@@ -255,5 +255,48 @@
             ],
             "problemMatcher": []
         },
+        {
+            "label": "build tiled_mm",
+            "type": "shell",
+            "command": "/opt/rocm/bin/hipcc tiled_mm.cu -o tiled_mm",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "tiled_mm.cu"
+            }
+        },
+        {
+            "label": "run tiled_mm",
+            "type": "shell",
+            "command": "./tiled_mm > result.csv; ${command:python.interpreterPath} plot.py plot result.csv grid_size elapsed_msec result_tiled_mm.png",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": "tiled_mm.cu"
+            },
+            "dependsOn": [
+                "build tiled_mm"
+            ]
+        },
+        {
+            "label": "profile tiled_mm",
+            "type": "shell",
+            "command": "PATH=$PATH:/opt/rocm/bin /opt/rocm/bin/rocprof --hip-trace ./tiled_mm",
+            "options": {
+                "cwd": "${workspaceFolder}/hip",
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": "tiled_mm.cu"
+            },
+            "dependsOn": [
+                "build tiled_mm"
+            ],
+            "problemMatcher": []
+        },
     ]
 }
