@@ -37,8 +37,74 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
     // (M, N)    (M, K)    (K, N)
     //   where y => rows (i), x => colummns (j)
 
-    extern __shared__ float subTileM[];
-    float *subTileN = &subTileM[tileSize * tileSize];
+    extern __shared__ float subTileA[];
+    float *subTileB = &subTileA[tileSize * tileSize];
+
+    // cumulative sum across the full K dimension
+    float sum = 0.0f;
+
+    // load the A and B tiles
+    const int row = blockIdx.y * tileSize + threadIdx.y;
+    const int col = blockIdx.x * tileSize + threadIdx.x;
+    const int numTiles = CDIV(K, tileSize);
+
+    // walk the K dimension in tiles
+    for (int k = 0; k < numTiles; ++k)
+    {
+        // load tileSize rows of A (i dimension, threadIdx.y)
+        // and tileSize columns (k dimension, threadIdx.x)
+        int aRow = row;
+        int aCol = k * tileSize + threadIdx.x;
+        int elem = threadIdx.y * tileSize + threadIdx.x;
+
+        if (aRow < M && aCol < K)
+        {
+            // only tileSize x tileSize will be copied per workgroup
+            subTileA[elem] = A[aRow * K + aCol];
+        }
+        else
+        {
+            subTileA[elem] = 0.0f;
+        }
+
+        // load tileSize rows of B (k dimension, threadIdx.y)
+        // and tileSize cols of B (j dimension, threadIdx.x)
+        int bRow = k * tileSize + threadIdx.y;
+        int bCol = col;
+
+        if (bRow < K && bCol < N)
+        {
+            // only tileSize x tileSize will be copied per workgroup
+            subTileB[elem] = B[bRow * N + bCol];
+        }
+        else
+        {
+            subTileB[elem] = 0.0f;
+        }
+
+        __syncthreads(); // wait for complete tile to be loaded
+
+        // multiply subTileA with subTileB
+        // each thread will take the threadIdx.y's row across the kk dimension
+        // and multiply that by threadIdx.x's column across the kk dimension
+        float tileSum = 0.0f; // for clarity
+        for (int kk = 0; kk < tileSize; ++kk)
+        {
+            if (k * tileSize + kk < K)
+            {
+                tileSum += subTileA[threadIdx.y * tileSize + kk] * subTileB[kk * tileSize + threadIdx.x];
+            }
+        }
+        // aggregate the tile-local sum into the k sum
+        sum += tileSum;
+
+        __syncthreads(); // wait for processing of the current tile to be complete, otherwise
+                         // other threads may update subTileA or subTileB before we are done
+                         // with computing all the thread-local sums
+
+        // update the result
+        C[row * N + col] = sum;
+    }
 }
 
 __global__ void matrixMultiplyNaive(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K)
@@ -122,7 +188,7 @@ int run(int deviceId, int tileSize, Strategy strategy)
     }
     else
     {
-        int sharedMemorySize = tileSize * tileSize * sizeof(float) * 2;
+        int sharedMemorySize = tileSize * tileSize * sizeof(float) * 2; // subTileA and subTileB
 
         TimedRegion r(ss.str());
 
