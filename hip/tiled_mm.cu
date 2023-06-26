@@ -17,7 +17,7 @@ __global__ void init(T *a, int n)
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     for (; i < n; i += stride)
     {
-        a[i] = static_cast<T>(i) / static_cast<T>(1024);
+        a[i] = static_cast<T>(i) / static_cast<T>(n * n);
     }
 }
 
@@ -65,7 +65,12 @@ void matrixMultiplyCPU(float16_t *A, float16_t *B, float *C, int M, int N, int K
 int run(int deviceId, int numBlocks)
 {
     constexpr int numThreads = 256;
-    constexpr int M = 8192;
+
+#ifdef VERIFY
+    constexpr int M = 64;
+#else
+    constexpr int M = 2 << 16;
+#endif
     constexpr int N = M;
     constexpr int K = M;
 
@@ -76,6 +81,7 @@ int run(int deviceId, int numBlocks)
     HIP_ASSERT(hipMallocManaged(&d_a, M * K * sizeof(float16_t)));
     HIP_ASSERT(hipMallocManaged(&d_b, K * N * sizeof(float16_t)));
     HIP_ASSERT(hipMallocManaged(&d_cNaive, M * N * sizeof(float)));
+    HIP_ASSERT(hipMallocManaged(&d_cTiled, M * N * sizeof(float)));
 
     HIP_ASSERT(hipMemPrefetchAsync(d_a, M * K * sizeof(float16_t), deviceId));
     HIP_ASSERT(hipMemPrefetchAsync(d_b, K * N * sizeof(float16_t), deviceId));
@@ -93,24 +99,29 @@ int run(int deviceId, int numBlocks)
         matrixMultiplyNaive<<<numBlocks, numThreads>>>(d_a, d_b, d_cNaive, M, N, K);
     }
 
-    // Verify
-    float *cVerify = new float[M * N];
-    matrixMultiplyCPU(d_a, d_b, cVerify, M, N, K);
-    for (int i = 0; i < M; ++i)
+#ifdef VERIFY
     {
-        for (int j = 0; j < N; ++j)
+        float *cVerify = new float[M * N];
+        matrixMultiplyCPU(d_a, d_b, cVerify, M, N, K);
+
+        for (int i = 0; i < M; ++i)
         {
-            if (abs(d_cNaive[i * N + j] - cVerify[i * N + j]) > 1e-5)
+            for (int j = 0; j < N; ++j)
             {
-                std::cout << "Error: C[" << i << ", " << j << "] = "
-                          << d_cNaive[i * N + j] << ", expected "
-                          << cVerify[i * N + j] << std::endl;
-                return -1;
+                if (abs(d_cNaive[i * N + j] - cVerify[i * N + j]) > 1e-5)
+                {
+                    std::cout << "Error: C[" << i << ", " << j << "] = "
+                              << d_cNaive[i * N + j] << ", expected "
+                              << cVerify[i * N + j] << std::endl;
+                    return -1;
+                }
             }
         }
-    }
 
-    delete[] cVerify;
+        delete[] cVerify;
+    }
+#endif
+
     HIP_ASSERT(hipFree(d_a));
     HIP_ASSERT(hipFree(d_b));
     HIP_ASSERT(hipFree(d_cNaive));
@@ -136,7 +147,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
     int result = 0;
-    for (int numBlocks = 32; numBlocks <= 4096 && result == 0; numBlocks += 32)
+    for (int numBlocks = 32; numBlocks <= 2500 && result == 0; numBlocks += 32)
     {
         result = run(deviceId, numBlocks);
     }
