@@ -141,6 +141,7 @@ logs/
 
 # vscode
 settings.json
+*.code-workspace
 
 # hip
 hip/*.csv
