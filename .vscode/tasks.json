@@ -106,7 +106,10 @@
             // "command": "rocprof --stats ./vector_add",
             "command": "/opt/rocm/bin/rocprof -i counters.txt -o vector_add_profile.csv ./vector_add",
             "options": {
-                "cwd": "${workspaceFolder}/hip"
+                "cwd": "${workspaceFolder}/hip",
+                "env": {
+                    "PATH": "${PATH}:/opt/rocm/bin"
+                }
             },
             "group": {
                 "kind": "none",
@@ -233,6 +236,25 @@
             "dependsOn": [
                 "build reduce_sum"
             ]
+        },
+        {
+            "label": "profile reduce_sum",
+            "type": "shell",
+            "command": "/opt/rocm/bin/rocprof --hiptrace ./reduce_sum",
+            "options": {
+                "cwd": "${workspaceFolder}/hip",
+                "env": {
+                    "PATH": "${PATH}:/opt/rocm/bin"
+                }
+            },
+            "group": {
+                "kind": "none",
+                "isDefault": "reduce_sum.cu"
+            },
+            "dependsOn": [
+                "build reduce_sum"
+            ],
+            "problemMatcher": []
         },
     ]
 }

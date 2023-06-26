@@ -23,7 +23,7 @@ __global__ void init(T *a, int n)
     }
 }
 
-__global__ void sum(float16_t *input, float_t *output, int n)
+__global__ void reduceSum(float16_t *input, float_t *output, int n)
 {
     extern __shared__ float localSum[];
     const int gridSize = blockDim.x * gridDim.x;
@@ -97,7 +97,7 @@ int run(int numBlocks)
         ss << numBlocks << "," << numThreads;
 
         TimedRegion r(ss.str());
-        sum<<<numBlocks, numThreads, sharedMemorySize, 0>>>(d_a, d_b, N);
+        reduceSum<<<numBlocks, numThreads, sharedMemorySize, 0>>>(d_a, d_b, N);
         hipDeviceSynchronize();
     }
 
