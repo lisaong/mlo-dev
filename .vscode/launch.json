@@ -15,7 +15,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -44,7 +44,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -73,7 +73,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -99,7 +99,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "/opt/rocm-5.5.0/bin/rocgdb",
+            "miDebuggerPath": "/opt/rocm/bin/rocgdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
