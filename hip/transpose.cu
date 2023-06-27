@@ -11,9 +11,10 @@ using float16_t = _Float16;
 #define CDIV(n, block) (n + block - 1) / block
 
 // cf. https://developer.nvidia.com/blog/efficient-matrix-transpose-cuda-cc/
+// CUDA uses a slightly different way to avoid bank conflicts
 
 template <typename T>
-__global__ void transposeNaive(T *A, T *B, uint64_t M)
+__global__ void transposeNaive(const T *A, T *B, uint64_t M)
 {
     // naive transposition without memory coalescing
     // only square matrices are handled here
@@ -24,16 +25,17 @@ __global__ void transposeNaive(T *A, T *B, uint64_t M)
     // B[j, i] = A[i, j]
     if (i < M && j < M)
     {
+        // j is the minor axis
+        // accessing B column-wise, accessing A row-wise
         B[j * M + i] = A[i * M + j];
     }
 }
 
 template <typename T>
-__global__ void transposeCoalesced(T *A, T *B, uint64_t M)
+__global__ void transposeCoalesced(const T *A, T *B, uint64_t M)
 {
-    extern __shared__ T subTileA[]; // blockDim.y * blockDim.x
+    extern __shared__ T tile[]; // blockDim.y * blockDim.x
 
-    // copy A to subtileA, accesses along the j dimension will be coalesced
     const int iTileSize = blockDim.y;
     const int jTileSize = blockDim.x;
     const int iTile = blockIdx.y * iTileSize;
@@ -43,13 +45,24 @@ __global__ void transposeCoalesced(T *A, T *B, uint64_t M)
     const int ii = threadIdx.y;
     const int jj = threadIdx.x;
 
-    // subtileA[ii, jj] = A[i, j]
-    subTileA[ii * jTileSize + jj] = A[(iTile + ii) * M + (jTile + jj)];
+    // copy a row of A to a row of tile
+    tile[ii * jTileSize + jj] = A[(iTile + ii) * M + (jTile + jj)];
     __syncthreads();
 
-    // copy a column of subTileA to a row of B, so that accesses
-    // along the j dimension will be coalesced
-    B[(iTile + ii) * M + (jTile + jj)] = subTileA[jj * iTileSize + ii];
+    // copy a column of tile to a row of B
+    // To do this, we keep jj as the minor axis when traversing B
+    // so that memory reads (threadIdx.x) will be close by
+    //
+    // x ->
+    //      thread(0, 0) (1, 0), (2, 0)
+    // y
+    // |
+    // v
+    //
+    // row of B (jj is the minor axis)   column of A (ii is the minor axis)
+    //
+    // (Note that this won't work for rectangular matrices)
+    B[(jTile + ii) * M + (iTile + jj)] = tile[jj * iTileSize + ii];
 }
 
 template <typename T>
@@ -76,17 +89,17 @@ bool verify(T *A, T *B, uint64_t M)
 
 int main(int argc, const char **argv)
 {
-    constexpr int M = 32768;
+    constexpr int M = 1024; // 32768;
     constexpr int tileDim = 16;
     std::vector<float16_t> A;
     std::vector<float16_t> B;
 
-    A.resize(M, M);
-    B.resize(M, M);
+    A.resize(M * M);
+    B.resize(M * M);
 
     for (int i = 0; i < A.size(); ++i)
     {
-        A[i] = static_cast<float16_t>(rand()) / static_cast<float16_t>(RAND_MAX);
+        A[i] = static_cast<float16_t>(i) / (M / 4);
     }
 
     float16_t *d_A;
@@ -106,7 +119,8 @@ int main(int argc, const char **argv)
     HIP_ASSERT(hipMemcpy(B.data(), d_B, B.size() * sizeof(float16_t), hipMemcpyDeviceToHost));
     verify(A.data(), B.data(), M);
 
-    transposeCoalesced<<<dim3(gridDim, gridDim), dim3(tileDim, tileDim)>>>(d_A, d_B, M);
+    constexpr int sharedMemorySize = tileDim * tileDim * sizeof(float16_t);
+    transposeCoalesced<<<dim3(gridDim, gridDim), dim3(tileDim, tileDim), sharedMemorySize>>>(d_A, d_B, M);
     HIP_ASSERT(hipGetLastError());
     HIP_ASSERT(hipDeviceSynchronize());
 
