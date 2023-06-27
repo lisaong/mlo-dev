@@ -2,15 +2,12 @@
 #include <iostream>
 #include <sstream>
 
+#include "inc/assert.h"
 #include "inc/timed_region.h"
 
 using float16_t = _Float16;
 
 #include "inc/ulp.h"
-
-#ifndef HIP_ASSERT
-#define HIP_ASSERT(x) (assert((x) == hipSuccess))
-#endif
 
 #define CDIV(n, block) (n + block - 1) / block
 
@@ -132,9 +129,25 @@ __global__ void matrixMultiplyNaive(float16_t *A, float16_t *B, float *C, uint64
     }
 }
 
-#ifdef VERIFY
-void matrixMultiplyCPU(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K)
+void matrixMultiplyCPU(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K, bool managedMemory)
 {
+    float16_t *a;
+    float16_t *b;
+
+    if (managedMemory)
+    {
+        a = A;
+        b = B;
+    }
+    else
+    {
+        a = new float16_t[M * K];
+        b = new float16_t[K * N];
+
+        HIP_ASSERT(hipMemcpy(a, A, M * K * sizeof(float16_t), hipMemcpyDeviceToHost));
+        HIP_ASSERT(hipMemcpy(b, B, K * N * sizeof(float16_t), hipMemcpyDeviceToHost));
+    }
+
     // C[i, j] += A[i, k] * B[k, j]
     // (M, N)    (M, K)    (K, N)
     //   where y => rows (i), x => colummns (j)
@@ -145,42 +158,73 @@ void matrixMultiplyCPU(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_
             float sum = 0.0f;
             for (int k = 0; k < K; ++k)
             {
-                sum += A[i * K + k] * B[k * N + j];
+                sum += a[i * K + k] * b[k * N + j];
             }
             C[i * N + j] = sum;
         }
     }
+
+    if (!managedMemory)
+    {
+        delete[] a;
+        delete[] b;
+    }
 }
-#endif // VERIFY
 
-int run(int deviceId, int tileSize, Strategy strategy)
+template <typename TIn, typename TOut>
+int init(int deviceId, TIn **input1, TIn **input2, TOut **output, int M, int N, int K, bool managedMemory)
 {
-#ifdef VERIFY
-    constexpr uint64_t M = 64;
-#else
-    constexpr uint64_t M = 2 << 14;
-#endif // VERIFY
-    constexpr uint64_t N = M;
-    constexpr uint64_t K = M;
+    if (managedMemory)
+    {
+        HIP_ASSERT(hipMallocManaged(input1, M * K * sizeof(TIn)));
+        HIP_ASSERT(hipMallocManaged(input2, K * N * sizeof(TIn)));
+        HIP_ASSERT(hipMallocManaged(output, M * N * sizeof(TOut)));
 
+        HIP_ASSERT(hipMemPrefetchAsync(*input1, M * K * sizeof(TIn), deviceId));
+        HIP_ASSERT(hipMemPrefetchAsync(*input2, K * N * sizeof(TIn), deviceId));
+        HIP_ASSERT(hipMemPrefetchAsync(*output, M * N * sizeof(TOut), deviceId));
+    }
+    else
+    {
+        HIP_ASSERT(hipMalloc(input1, M * K * sizeof(TIn)));
+        HIP_ASSERT(hipMalloc(input2, K * N * sizeof(TIn)));
+        HIP_ASSERT(hipMalloc(output, M * N * sizeof(TOut)));
+    }
+
+    const dim3 numThreads(256, 256, 1);
+    dim3 numBlocks(CDIV(M, numThreads.x), CDIV(K, numThreads.y), 1);
+    init<<<numBlocks, numThreads>>>(*input1, M, K);
+
+    numBlocks.x = CDIV(K, numThreads.x);
+    numBlocks.y = CDIV(N, numThreads.y);
+    init<<<numBlocks, numThreads>>>(*input2, K, N);
+    hipDeviceSynchronize();
+    return 0;
+}
+
+template <typename TIn, typename TOut>
+void cleanup(TIn *input1, TIn *input2, TOut *output)
+{
+    HIP_ASSERT(hipFree(input1));
+    HIP_ASSERT(hipFree(input2));
+    HIP_ASSERT(hipFree(output));
+}
+
+template <typename TIn, typename TOut>
+int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N, int K, int tileSize, Strategy strategy, bool managedMemory)
+{
     const dim3 numThreads(tileSize, tileSize, 1);
     const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
 
-    // alloc
-    float16_t *d_a;
-    float16_t *d_b;
-    float *d_c;
-    HIP_ASSERT(hipMallocManaged(&d_a, M * K * sizeof(float16_t)));
-    HIP_ASSERT(hipMallocManaged(&d_b, K * N * sizeof(float16_t)));
-    HIP_ASSERT(hipMallocManaged(&d_c, M * N * sizeof(float)));
-
-    HIP_ASSERT(hipMemPrefetchAsync(d_a, M * K * sizeof(float16_t), deviceId));
-    HIP_ASSERT(hipMemPrefetchAsync(d_b, K * N * sizeof(float16_t), deviceId));
-    HIP_ASSERT(hipMemPrefetchAsync(d_c, M * N * sizeof(float), deviceId));
-
-    init<<<numBlocks, numThreads>>>(d_a, M, K);
-    init<<<numBlocks, numThreads>>>(d_b, K, N);
-    hipDeviceSynchronize();
+    int maxThreadsPerBlock = 0;
+    HIP_ASSERT(hipDeviceGetAttribute(&maxThreadsPerBlock,
+                                     hipDeviceAttributeMaxThreadsPerBlock, deviceId));
+    auto requestedThreads = numThreads.x * numThreads.y;
+    if (requestedThreads > maxThreadsPerBlock)
+    {
+        std::cout << "Num threads requested: " << requestedThreads << " exceeds limit (" << maxThreadsPerBlock << ")" << std::endl;
+        return -2;
+    }
 
     std::stringstream ss;
     ss << numBlocks.x << "," << numThreads.x; // BUGBUG: assumes square sizes
@@ -189,46 +233,70 @@ int run(int deviceId, int tileSize, Strategy strategy)
         TimedRegion r(ss.str());
 
         matrixMultiplyNaive<<<numBlocks, numThreads>>>(d_a, d_b, d_c, M, N, K);
-        hipDeviceSynchronize();
+        HIP_ASSERT(hipGetLastError());
+        HIP_ASSERT(hipDeviceSynchronize());
     }
     else
     {
-        int sharedMemorySize = tileSize * tileSize * sizeof(float) * 2; // subTileA and subTileB
+        int sharedMemorySize = tileSize * tileSize * sizeof(TOut) * 2; // subTileA and subTileB
+
+        // compute the amount of shared memory available
+        int sharedMemoryPerBlock = 0;
+        HIP_ASSERT(hipDeviceGetAttribute(&sharedMemoryPerBlock,
+                                         hipDeviceAttributeMaxSharedMemoryPerBlock, deviceId));
+        if (sharedMemorySize > sharedMemoryPerBlock)
+        {
+            std::cout << "Shared memory needed: " << sharedMemorySize << " (bytes) exceeds limit (" << sharedMemoryPerBlock << ")" << std::endl;
+            return -2;
+        }
 
         TimedRegion r(ss.str());
 
         matrixMultiplyTiled<<<numBlocks, numThreads, sharedMemorySize>>>(d_a, d_b, d_c, M, N, K, tileSize);
-        hipDeviceSynchronize();
+        HIP_ASSERT(hipGetLastError());
+        HIP_ASSERT(hipDeviceSynchronize());
     }
 
-#ifdef VERIFY
+    if (verify != nullptr)
     {
-        float *cVerify = new float[M * N];
-        matrixMultiplyCPU(d_a, d_b, cVerify, M, N, K);
-
-        for (int i = 0; i < M; ++i)
+        TOut *c = nullptr;
+        if (managedMemory)
         {
-            for (int j = 0; j < N; ++j)
+            c = d_c;
+        }
+        else
+        {
+            c = new TOut[M * N];
+            HIP_ASSERT(hipMemcpy(c, d_c, M * N * sizeof(TOut), hipMemcpyDeviceToHost));
+        }
+
+        bool match = true;
+        for (int i = 0; i < M && match; ++i)
+        {
+            for (int j = 0; j < N && match; ++j)
             {
-                auto ulpDiff = ULPDiff(d_c[i * N + j], cVerify[i * N + j]);
+                auto ulpDiff = ULPDiff(c[i * N + j], verify[i * N + j]);
                 if (ulpDiff > 1e4)
                 {
                     std::cout << "Error: C[" << i << ", " << j << "] = "
-                              << d_c[i * N + j] << ", expected "
-                              << cVerify[i * N + j] << ", ulpdiff "
+                              << c[i * N + j] << ", expected "
+                              << verify[i * N + j] << ", ulpdiff "
                               << ulpDiff << std::endl;
-                    return -1;
+                    match = false;
                 }
             }
         }
 
-        delete[] cVerify;
-    }
-#endif // VERIFY
+        if (!managedMemory)
+        {
+            delete[] c;
+        }
 
-    HIP_ASSERT(hipFree(d_a));
-    HIP_ASSERT(hipFree(d_b));
-    HIP_ASSERT(hipFree(d_c));
+        if (!match)
+        {
+            return -1;
+        }
+    }
 
     return 0;
 }
@@ -242,23 +310,45 @@ int main(int argc, const char **argv)
     HIP_ASSERT(hipDeviceGetAttribute(&supportsManagedMemory,
                                      hipDeviceAttributeManagedMemory, deviceId));
 
-    if (supportsManagedMemory == 0)
-    {
-        std::cout << "Managed memory is not supported for device " << deviceId << std::endl;
-        return -1;
-    }
-
     Strategy strategy = Strategy::Tiled;
     if (argc > 1)
     {
         strategy = static_cast<Strategy>(atoi(argv[1]));
     }
 
+#ifdef VERIFY
+    constexpr uint64_t M = 64;
+#else
+    constexpr uint64_t M = 2 << 14;
+#endif // VERIFY
+    constexpr uint64_t N = M;
+    constexpr uint64_t K = M;
+
+    float16_t *d_a;
+    float16_t *d_b;
+    float *d_c;
+    float *cVerify = nullptr;
+
+    int result = init(deviceId, &d_a, &d_b, &d_c, M, N, K, supportsManagedMemory != 0);
+
+#ifdef VERIFY
+    cVerify = new float[M * N];
+    matrixMultiplyCPU(d_a, d_b, cVerify, M, N, K, supportsManagedMemory != 0);
+#endif // VERIFY
+
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
-    int result = 0;
-    for (int numThreads = 256; numThreads <= 2500 && result == 0; numThreads += 32)
+
+    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 16)
     {
-        result = run(deviceId, numThreads, strategy);
+        result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
+
+    cleanup(d_a, d_b, d_c);
+
+    if (cVerify != nullptr)
+    {
+        delete[] cVerify;
+    }
+
     return result;
 }

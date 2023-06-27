@@ -3,11 +3,9 @@
 
 #include <hip/hip_runtime.h>
 
-// cf. https://github.com/ROCm-Developer-Tools/hipamd/blob/develop/src/hip_event.cpp
+#include "assert.h"
 
-#ifndef HIP_ASSERT
-#define HIP_ASSERT(x) (assert((x) == hipSuccess))
-#endif
+// cf. https://github.com/ROCm-Developer-Tools/hipamd/blob/develop/src/hip_event.cpp
 
 struct TimedRegion
 {

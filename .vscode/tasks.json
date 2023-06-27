@@ -311,5 +311,17 @@
             ],
             "problemMatcher": []
         },
+        {
+            "label": "build debug transpose",
+            "type": "shell",
+            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb transpose.cu -o transpose",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "transpose.cu"
+            }
+        },
     ]
 }
