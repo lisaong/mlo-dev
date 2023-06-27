@@ -216,6 +216,16 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
     const dim3 numThreads(tileSize, tileSize, 1);
     const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
 
+    int maxThreadsPerBlock = 0;
+    HIP_ASSERT(hipDeviceGetAttribute(&maxThreadsPerBlock,
+                                     hipDeviceAttributeMaxThreadsPerBlock, deviceId));
+    auto requestedThreads = numThreads.x * numThreads.y;
+    if (requestedThreads > maxThreadsPerBlock)
+    {
+        std::cout << "Num threads requested: " << requestedThreads << " exceeds limit (" << maxThreadsPerBlock << ")" << std::endl;
+        return -2;
+    }
+
     std::stringstream ss;
     ss << numBlocks.x << "," << numThreads.x; // BUGBUG: assumes square sizes
     if (strategy == Strategy::Naive)
@@ -229,6 +239,16 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
     else
     {
         int sharedMemorySize = tileSize * tileSize * sizeof(TOut) * 2; // subTileA and subTileB
+
+        // compute the amount of shared memory available
+        int sharedMemoryPerBlock = 0;
+        HIP_ASSERT(hipDeviceGetAttribute(&sharedMemoryPerBlock,
+                                         hipDeviceAttributeMaxSharedMemoryPerBlock, deviceId));
+        if (sharedMemorySize > sharedMemoryPerBlock)
+        {
+            std::cout << "Shared memory needed: " << sharedMemorySize << " (bytes) exceeds limit (" << sharedMemoryPerBlock << ")" << std::endl;
+            return -2;
+        }
 
         TimedRegion r(ss.str());
 
@@ -318,7 +338,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
 
-    for (int numThreads = 16; numThreads <= 2500 && result == 0; numThreads += 32)
+    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 16)
     {
         result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
