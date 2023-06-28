@@ -47,11 +47,16 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
     float sum = 0.0f;
 
     // load the A and B tiles
+#if VERIFY
+    volatile int tidx = threadIdx.x; // for debugging
+    volatile int tidy = threadIdx.y; // for debugging
+#endif //VERIFY
+
     const int i = blockIdx.y * tileSizeY + threadIdx.y;
     const int j = blockIdx.x * tileSizeX + threadIdx.x;
     const int numTiles = CDIV(K, tileSizeX);
 
-    // walk the tiles along the k dimension (columns of A)
+    // walk the tiles along the k dimension
     for (int k = 0; k < numTiles; ++k)
     {
         // load tileSizeY rows of A (i dimension, threadIdx.y)
@@ -97,10 +102,7 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
         float tileSum = 0.0f; // for clarity
         for (int kk = 0; kk < tileSizeX; ++kk)
         {
-            if (k * tileSizeX + kk < K)
-            {
-                tileSum += subTileA[threadIdx.y * tileSizeX + kk] * subTileB[kk * tileSizeY + threadIdx.y];
-            }
+            tileSum += subTileA[threadIdx.y * tileSizeX + kk] * subTileB[kk * tileSizeY + threadIdx.y];
         }
         // aggregate the tile-local sum into the k sum
         sum += tileSum;
@@ -109,9 +111,9 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
                          // other threads may update subTileA or subTileB before we are done
                          // with computing all the thread-local sums
 
-        // update the result
-        C[i * N + j] = sum;
     }
+    // update the result
+    C[i * N + j] = sum;
 }
 
 __global__ void matrixMultiplyNaive(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K)
@@ -225,7 +227,7 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
                                      hipDeviceAttributeMaxThreadsPerBlock, deviceId));
 
     const int tileSizeX = tileSize;
-    const int tileSizeY = max(1, tileSize / 16); // use rectangular tiles to fit the limit of 1024
+    const int tileSizeY = tileSize; // use rectangular tiles to fit the limit of 1024
     const dim3 numThreads(tileSizeX, tileSizeY, 1);
     const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
 
@@ -351,7 +353,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
 
-    for (int numThreads = 16; numThreads < 512 && result == 0; numThreads += 16)
+    for (int numThreads = 16; numThreads <= M && result == 0; numThreads += 16)
     {
         result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
