@@ -147,8 +147,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/hip/transpose",
-            "args": [
-            ],
+            "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

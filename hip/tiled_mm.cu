@@ -37,57 +37,56 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
 {
     // C[i, j] += A[i, k] * B[k, j]
     // (M, N)    (M, K)    (K, N)
-    //   where y => rows (i), x => colummns (j)
+    //   where y => rows (i), x => colummns (j) for C
 
-    extern __shared__ float subTileA[];                 // (tileSizeX x tileSizeY)
-    float *subTileB = &subTileA[tileSizeY * tileSizeX]; // (tileSizeY x tileSizeX)
+    extern __shared__ float subTileA[];                 // (tileSizeY by tileSizeX)
+    float *subTileB = &subTileA[tileSizeY * tileSizeX]; // (tileSizeX by tileSizeY)
 
     // cumulative sum across the full K dimension for each thread
     // (one full row of A x one full column of B)
     float sum = 0.0f;
 
     // load the A and B tiles
-    const int row = blockIdx.y * tileSizeY + threadIdx.y;
-    const int col = blockIdx.x * tileSizeX + threadIdx.x;
-    const int numTilesX = CDIV(K, tileSizeX);
-    const int numTilesY = CDIV(K, tileSizeY);
+    const int i = blockIdx.y * tileSizeY + threadIdx.y;
+    const int j = blockIdx.x * tileSizeX + threadIdx.x;
+    const int numTiles = CDIV(K, tileSizeX);
 
     // walk the tiles along the k dimension (columns of A)
-    for (int k = 0; k < numTilesX; ++k)
+    for (int k = 0; k < numTiles; ++k)
     {
         // load tileSizeY rows of A (i dimension, threadIdx.y)
-        // and tileSizeX columns (k dimension, threadIdx.x)
-        auto aRow = row;
+        //   and tileSizeX columns (k dimension, threadIdx.x)
+        auto aRow = i;
         auto aCol = k * tileSizeX + threadIdx.x;
-        auto elem = threadIdx.y * tileSizeX + threadIdx.x;
+        auto smem = threadIdx.y * tileSizeX + threadIdx.x;
 
         if (aRow < M && aCol < K)
         {
             // only tileSizeY x tileSizeX will be copied per workgroup
-            subTileA[elem] = A[aRow * K + aCol];
+            subTileA[smem] = A[aRow * K + aCol];
         }
         else
         {
-            subTileA[elem] = 0.0f;
+            subTileA[smem] = 0.0f;
         }
 
         // load tileSizeX rows of B (k dimension, threadIdx.x)
-        // and tileSizeY cols of B (j dimension, threadIdx.y)
+        //   and tileSizeY cols of B (j dimension, threadIdx.y)
         auto bRow = k * tileSizeX + threadIdx.x;
-        auto bCol = col;
-        elem = threadIdx.x * tileSizeY + threadIdx.y;
+        auto bCol = j;
+        smem = threadIdx.x * tileSizeY + threadIdx.y;
 
         if (bRow < K && bCol < N)
         {
             // only tileSizeX x tileSizeY will be copied per workgroup
             // BUGBUG: non-coalesced global memory access for B
-            //         for coalesced access, threadIdx.x needs
-            //         to be the minor axis
-            subTileB[elem] = B[bRow * N + bCol];
+            //         (for coalesced access, threadIdx.x needs
+            //         to do contiguous reads)
+            subTileB[smem] = B[bRow * N + bCol];
         }
         else
         {
-            subTileB[elem] = 0.0f;
+            subTileB[smem] = 0.0f;
         }
 
         __syncthreads(); // wait for complete tile to be loaded
@@ -111,7 +110,7 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
                          // with computing all the thread-local sums
 
         // update the result
-        C[row * N + col] = sum;
+        C[i * N + j] = sum;
     }
 }
 
