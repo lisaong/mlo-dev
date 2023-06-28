@@ -42,6 +42,11 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
     extern __shared__ float subTileA[];
     float *subTileB = &subTileA[tileSize * tileSize];
 
+#ifdef VERIFY
+    volatile int tidx = threadIdx.x;
+    volatile int tidy = threadIdx.y;
+#endif
+
     // cumulative sum across the full K dimension
     float sum = 0.0f;
 
@@ -103,10 +108,11 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
         __syncthreads(); // wait for processing of the current tile to be complete, otherwise
                          // other threads may update subTileA or subTileB before we are done
                          // with computing all the thread-local sums
-
-        // update the result
-        C[row * N + col] = sum;
     }
+
+    // update the result
+    if (row < M && col < N)
+        C[row * N + col] = sum;
 }
 
 __global__ void matrixMultiplyNaive(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K)
@@ -191,14 +197,16 @@ int init(int deviceId, TIn **input1, TIn **input2, TOut **output, int M, int N, 
         HIP_ASSERT(hipMalloc(output, M * N * sizeof(TOut)));
     }
 
-    const dim3 numThreads(256, 256, 1);
+    const dim3 numThreads(16, 16, 1);
     dim3 numBlocks(CDIV(M, numThreads.x), CDIV(K, numThreads.y), 1);
     init<<<numBlocks, numThreads>>>(*input1, M, K);
+    HIP_ASSERT(hipGetLastError());
 
     numBlocks.x = CDIV(K, numThreads.x);
     numBlocks.y = CDIV(N, numThreads.y);
     init<<<numBlocks, numThreads>>>(*input2, K, N);
-    hipDeviceSynchronize();
+    HIP_ASSERT(hipGetLastError());
+    HIP_ASSERT(hipDeviceSynchronize());
     return 0;
 }
 
@@ -319,7 +327,7 @@ int main(int argc, const char **argv)
 #ifdef VERIFY
     constexpr uint64_t M = 64;
 #else
-    constexpr uint64_t M = 2 << 14;
+    constexpr uint64_t M = 8192;
 #endif // VERIFY
     constexpr uint64_t N = M;
     constexpr uint64_t K = M;
