@@ -76,7 +76,7 @@
         {
             "label": "build debug vector_add",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb vector_add.cu -o vector_add",
+            "command": "/opt/rocm/bin/hipcc -O0 -g vector_add.cu -o vector_add",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -135,7 +135,7 @@
         {
             "label": "build debug image_gamma",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb image_gamma.cu -o image_gamma",
+            "command": "/opt/rocm/bin/hipcc -O0 -g image_gamma.cu -o image_gamma",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -174,7 +174,7 @@
         {
             "label": "build debug image_smoothing",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb image_smoothing.cu -o image_smoothing",
+            "command": "/opt/rocm/bin/hipcc -O0 -g image_smoothing.cu -o image_smoothing",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -213,7 +213,7 @@
         {
             "label": "build debug reduce_sum",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb reduce_sum.cu -o reduce_sum",
+            "command": "/opt/rocm/bin/hipcc -O0 -g reduce_sum.cu -o reduce_sum",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -270,7 +270,7 @@
         {
             "label": "build debug tiled_mm",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -DVERIFY -O0 -g -ggdb tiled_mm.cu -o tiled_mm",
+            "command": "/opt/rocm/bin/hipcc -DVERIFY -O0 -g tiled_mm.cu -o tiled_mm",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
@@ -314,7 +314,7 @@
         {
             "label": "build debug transpose",
             "type": "shell",
-            "command": "/opt/rocm/bin/hipcc -O0 -g -ggdb transpose.cu -o transpose",
+            "command": "/opt/rocm/bin/hipcc -O0 -g transpose.cu -o transpose",
             "options": {
                 "cwd": "${workspaceFolder}/hip"
             },
