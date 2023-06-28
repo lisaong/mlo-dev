@@ -80,7 +80,7 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
         {
             // only tileSizeX x tileSizeY will be copied per workgroup
             // BUGBUG: non-coalesced global memory access for B
-            //         for coalesced access, threadIdx.x should needs
+            //         for coalesced access, threadIdx.x needs
             //         to be the minor axis
             subTileB[elem] = B[bRow * N + bCol];
         }
@@ -196,14 +196,16 @@ int init(int deviceId, TIn **input1, TIn **input2, TOut **output, int M, int N, 
         HIP_ASSERT(hipMalloc(output, M * N * sizeof(TOut)));
     }
 
-    const dim3 numThreads(256, 256, 1);
+    const dim3 numThreads(256, 4, 1);
     dim3 numBlocks(CDIV(M, numThreads.x), CDIV(K, numThreads.y), 1);
     init<<<numBlocks, numThreads>>>(*input1, M, K);
+    HIP_ASSERT(hipGetLastError());
 
     numBlocks.x = CDIV(K, numThreads.x);
     numBlocks.y = CDIV(N, numThreads.y);
     init<<<numBlocks, numThreads>>>(*input2, K, N);
-    hipDeviceSynchronize();
+    HIP_ASSERT(hipGetLastError());
+    HIP_ASSERT(hipDeviceSynchronize());
     return 0;
 }
 
@@ -218,14 +220,15 @@ void cleanup(TIn *input1, TIn *input2, TOut *output)
 template <typename TIn, typename TOut>
 int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N, int K, int tileSize, Strategy strategy, bool managedMemory)
 {
-    const int tileSizeX = tileSize;
-    const int tileSizeY = tileSize / 16; // use rectangular tiles to fit the limit of 1024
-    const dim3 numThreads(tileSizeX, tileSizeY, 1);
-    const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
-
     int maxThreadsPerBlock = 0;
     HIP_ASSERT(hipDeviceGetAttribute(&maxThreadsPerBlock,
                                      hipDeviceAttributeMaxThreadsPerBlock, deviceId));
+
+    const int tileSizeX = tileSize;
+    const int tileSizeY = max(1, tileSize / 64); // use rectangular tiles to fit the limit of 1024
+    const dim3 numThreads(tileSizeX, tileSizeY, 1);
+    const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
+
     auto requestedThreads = numThreads.x * numThreads.y;
     if (requestedThreads > maxThreadsPerBlock)
     {
@@ -282,13 +285,13 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
         {
             for (int j = 0; j < N && match; ++j)
             {
-                auto ulpDiff = ULPDiff(c[i * N + j], verify[i * N + j]);
-                if (ulpDiff > 1e4)
+                auto diff = std::abs(c[i * N + j] - verify[i * N + j]);
+                if (diff > 1e-1)
                 {
                     std::cout << "Error: C[" << i << ", " << j << "] = "
                               << c[i * N + j] << ", expected "
-                              << verify[i * N + j] << ", ulpdiff "
-                              << ulpDiff << std::endl;
+                              << verify[i * N + j] << ", abs diff "
+                              << diff << std::endl;
                     match = false;
                 }
             }
@@ -345,7 +348,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
 
-    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 32)
+    for (int numThreads = 16; numThreads < 512 && result == 0; numThreads += 16)
     {
         result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
