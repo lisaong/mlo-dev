@@ -146,7 +146,11 @@ settings.json
 # hip
 hip/*.csv
 hip/*.db
+hip/*.hipfb
+hip/*.hipi
 hip/*.json
+hip/*.out
+hip/*.resolution.txt
 hip/*.stats.csv
 hip/*.sysinfo.txt
 hip/image_gamma

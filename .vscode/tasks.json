@@ -323,5 +323,29 @@
                 "isDefault": "transpose.cu"
             }
         },
+        {
+            "label": "build transpose",
+            "type": "shell",
+            "command": "HIPCC_VERBOSE=7 /opt/rocm/bin/hipcc transpose.cu -o transpose",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "transpose.cu"
+            }
+        },
+        {
+            "label": "build and disassemble transpose",
+            "type": "shell",
+            "command": "/opt/rocm/bin/hipcc transpose.cu -o transpose -save-temps",
+            "options": {
+                "cwd": "${workspaceFolder}/hip"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": "transpose.cu"
+            }
+        }
     ]
 }
