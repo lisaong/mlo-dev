@@ -33,14 +33,14 @@ __global__ void init(T *a, uint64_t M, uint64_t N)
 
 // cf. https://gitlab.com/syifan/hipbookexample/-/blob/main/Chapter5/MatrixMultiplication/main.cpp
 
-__global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K, int tileSize)
+__global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64_t M, uint64_t N, uint64_t K, int tileSizeX, int tileSizeY)
 {
     // C[i, j] += A[i, k] * B[k, j]
     // (M, N)    (M, K)    (K, N)
     //   where y => rows (i), x => colummns (j)
 
-    extern __shared__ float subTileA[];
-    float *subTileB = &subTileA[tileSize * tileSize];
+    extern __shared__ float subTileA[];                 // (tileSizeX x tileSizeY)
+    float *subTileB = &subTileA[tileSizeY * tileSizeX]; // (tileSizeY x tileSizeX)
 
     // cumulative sum across the full K dimension
     float sum = 0.0f;
@@ -48,20 +48,21 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
     // load the A and B tiles
     const int row = blockIdx.y * tileSize + threadIdx.y;
     const int col = blockIdx.x * tileSize + threadIdx.x;
-    const int numTiles = CDIV(K, tileSize);
+    const int numTilesX = CDIV(K, tileSizeX);
+    const int numTilesY = CDIV(K, tileSizeY);
 
-    // walk the K dimension in tiles
-    for (int k = 0; k < numTiles; ++k)
+    // walk the tiles along the k dimension (columns of A)
+    for (int k = 0; k < numTilesX; ++k)
     {
-        // load tileSize rows of A (i dimension, threadIdx.y)
-        // and tileSize columns (k dimension, threadIdx.x)
+        // load tileSizeY rows of A (i dimension, threadIdx.y)
+        // and tileSizeX columns (k dimension, threadIdx.x)
         int aRow = row;
-        int aCol = k * tileSize + threadIdx.x;
-        int elem = threadIdx.y * tileSize + threadIdx.x;
+        int aCol = k * tileSizeX + threadIdx.x;
+        int elem = threadIdx.y * tileSizeX + threadIdx.x;
 
         if (aRow < M && aCol < K)
         {
-            // only tileSize x tileSize will be copied per workgroup
+            // only tileSizeX x tileSizeY will be copied per workgroup
             subTileA[elem] = A[aRow * K + aCol];
         }
         else
@@ -69,14 +70,18 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
             subTileA[elem] = 0.0f;
         }
 
-        // load tileSize rows of B (k dimension, threadIdx.y)
-        // and tileSize cols of B (j dimension, threadIdx.x)
-        int bRow = k * tileSize + threadIdx.y;
+        // load tileSizeX rows of B (k dimension, threadIdx.x)
+        // and tileSizeY cols of B (j dimension, threadIdx.y)
+        int bRow = k * tileSizeX + threadIdx.x;
         int bCol = col;
+        elem = threadIdx.x * tileSizeY + threadIdx.y;
 
         if (bRow < K && bCol < N)
         {
-            // only tileSize x tileSize will be copied per workgroup
+            // only tileSizeX x tileSizeY will be copied per workgroup
+            // BUGBUG: non-coalesced global memory access for B
+            //         for coalesced access, threadIdx.x should needs
+            //         to be the minor axis
             subTileB[elem] = B[bRow * N + bCol];
         }
         else
@@ -87,14 +92,14 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
         __syncthreads(); // wait for complete tile to be loaded
 
         // multiply subTileA with subTileB
-        // each thread will take the threadIdx.y's row across the kk dimension
-        // and multiply that by threadIdx.x's column across the kk dimension
+        // each thread will take the subTileA's row across the kk dimension (tileSizeX)
+        // and multiply that by subTileB's column across the kk dimension (tileSizeX)
         float tileSum = 0.0f; // for clarity
-        for (int kk = 0; kk < tileSize; ++kk)
+        for (int kk = 0; kk < tileSizeX; ++kk)
         {
-            if (k * tileSize + kk < K)
+            if (k * tileSizeX + kk < K)
             {
-                tileSum += subTileA[threadIdx.y * tileSize + kk] * subTileB[kk * tileSize + threadIdx.x];
+                tileSum += subTileA[threadIdx.y * tileSizeX + kk] * subTileB[kk * tileSizeY + threadIdx.x];
             }
         }
         // aggregate the tile-local sum into the k sum
@@ -213,7 +218,9 @@ void cleanup(TIn *input1, TIn *input2, TOut *output)
 template <typename TIn, typename TOut>
 int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N, int K, int tileSize, Strategy strategy, bool managedMemory)
 {
-    const dim3 numThreads(tileSize, tileSize, 1);
+    const int tileSizeX = tileSize;
+    const int tileSizeY = tileSize / 16; // use rectangular tiles to fit the limit of 1024
+    const dim3 numThreads(tileSizeX, tileSizeY, 1);
     const dim3 numBlocks(CDIV(M, numThreads.x), CDIV(N, numThreads.y), 1);
 
     int maxThreadsPerBlock = 0;
@@ -238,7 +245,7 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
     }
     else
     {
-        int sharedMemorySize = tileSize * tileSize * sizeof(TOut) * 2; // subTileA and subTileB
+        int sharedMemorySize = tileSizeX * tileSizeY * sizeof(TOut) * 2; // subTileA and subTileB
 
         // compute the amount of shared memory available
         int sharedMemoryPerBlock = 0;
@@ -252,7 +259,7 @@ int run(int deviceId, TIn *d_a, TIn *d_b, TOut *d_c, TOut *verify, int M, int N,
 
         TimedRegion r(ss.str());
 
-        matrixMultiplyTiled<<<numBlocks, numThreads, sharedMemorySize>>>(d_a, d_b, d_c, M, N, K, tileSize);
+        matrixMultiplyTiled<<<numBlocks, numThreads, sharedMemorySize>>>(d_a, d_b, d_c, M, N, K, tileSizeX, tileSizeY);
         HIP_ASSERT(hipGetLastError());
         HIP_ASSERT(hipDeviceSynchronize());
     }
@@ -338,7 +345,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
 
-    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 16)
+    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 32)
     {
         result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
