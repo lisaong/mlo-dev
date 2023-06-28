@@ -51,6 +51,7 @@ __global__ void transposeCoalesced(const T *A, T *B, uint64_t M)
 
     // copy a column of tile to a row of B
     // To do this, we keep jj as the minor axis when traversing B
+    // jj maps to threadIdx.x, which is the most widely varying coordinate
     // so that memory reads (threadIdx.x) will be close by
     //
     // x ->

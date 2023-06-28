@@ -46,8 +46,8 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
     float sum = 0.0f;
 
     // load the A and B tiles
-    const int row = blockIdx.y * tileSize + threadIdx.y;
-    const int col = blockIdx.x * tileSize + threadIdx.x;
+    const int row = blockIdx.y * tileSizeY + threadIdx.y;
+    const int col = blockIdx.x * tileSizeX + threadIdx.x;
     const int numTilesX = CDIV(K, tileSizeX);
     const int numTilesY = CDIV(K, tileSizeY);
 
