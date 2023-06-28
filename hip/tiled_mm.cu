@@ -346,7 +346,7 @@ int main(int argc, const char **argv)
 
     std::cout << "grid_size,block_size,elapsed_msec" << std::endl;
 
-    for (int numThreads = 16; numThreads < 2500 && result == 0; numThreads += 16)
+    for (int numThreads = 16; numThreads <= 256 && result == 0; numThreads += 16)
     {
         result = run(deviceId, d_a, d_b, d_c, cVerify, M, N, K, numThreads, strategy, supportsManagedMemory != 0);
     }
