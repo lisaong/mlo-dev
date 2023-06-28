@@ -99,7 +99,7 @@ __global__ void matrixMultiplyTiled(float16_t *A, float16_t *B, float *C, uint64
         {
             if (k * tileSizeX + kk < K)
             {
-                tileSum += subTileA[threadIdx.y * tileSizeX + kk] * subTileB[kk * tileSizeY + threadIdx.x];
+                tileSum += subTileA[threadIdx.y * tileSizeX + kk] * subTileB[kk * tileSizeY + threadIdx.y];
             }
         }
         // aggregate the tile-local sum into the k sum
